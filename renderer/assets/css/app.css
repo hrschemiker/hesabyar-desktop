@@ -63,6 +63,13 @@ input, select, option, optgroup, textarea, button,
 .hpa-sync-result { margin-top: 10px; padding: 10px 12px; background: #f1f5f9; border-radius: 12px; }
 .hpa-about-card { text-align: center; }
 
+/* Archive section */
+.hpa-archive-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.hpa-archive-groups .hpa-checkline { border: 1px solid var(--line, #e2e8f0); border-radius: 12px; padding: 10px 12px; background: #fff; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.hpa-archive-groups .hpa-archive-all { grid-column: 1 / -1; background: #eef2ff; border-color: #c7d2fe; }
+.hpa-btn-danger { background: #fef2f2 !important; color: #dc2626 !important; border: 1px solid #fecaca !important; font-weight: 800; }
+.hpa-btn-danger:hover { background: #fee2e2 !important; }
+
 /* keep app from feeling cramped in a desktop window */
 .hpa-main { max-width: 1180px; margin: 0 auto; }
 

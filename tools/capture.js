@@ -78,6 +78,15 @@ async function run() {
     fs.writeFileSync(path.join(OUT, name + '.png'), img.toPNG());
     console.log('captured', name);
   }
+  // settings/archive: seed a sample archive record, then scroll to the archive card
+  act('hpa_save_archive', { group_receivables: '1', archive_title: 'بایگانی نمونه — پایان دوره' });
+  await win.loadURL('http://127.0.0.1:' + port + '/?hpa_tab=settings');
+  await new Promise(r => setTimeout(r, 1800));
+  await win.webContents.executeJavaScript("(function(){var c=document.querySelector('.hpa-archive-card'); if(c){var y=c.getBoundingClientRect().top+window.pageYOffset-24; window.scrollTo(0,Math.max(0,y));}})();");
+  await new Promise(r => setTimeout(r, 900));
+  const simg = await win.webContents.capturePage();
+  fs.writeFileSync(path.join(OUT, 'screenshot-archive.png'), simg.toPNG());
+  console.log('captured screenshot-archive');
   server.close();
   app.quit();
 }

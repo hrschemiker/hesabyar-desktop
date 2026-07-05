@@ -245,6 +245,16 @@ CREATE TABLE IF NOT EXISTS hpa_deleted_items (
   deleted_by INTEGER NOT NULL DEFAULT 0,
   deleted_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS hpa_archives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT,
+  scope TEXT,
+  summary TEXT,
+  data TEXT,
+  jalali_date TEXT,
+  gregorian_date TEXT,
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS hpa_options (
   setting_key TEXT PRIMARY KEY,
   setting_value TEXT
@@ -261,7 +271,8 @@ const TABLES = {
   debts: 'hpa_debts', receivables: 'hpa_receivables', assets: 'hpa_assets', asset_files: 'hpa_asset_files',
   rates: 'hpa_rates', loans: 'hpa_loans', loan_installments: 'hpa_loan_installments', checks: 'hpa_checks',
   recurring: 'hpa_recurring', attachments: 'hpa_attachments', goals: 'hpa_goals',
-  transaction_splits: 'hpa_transaction_splits', transaction_items: 'hpa_transaction_items', deleted_items: 'hpa_deleted_items'
+  transaction_splits: 'hpa_transaction_splits', transaction_items: 'hpa_transaction_items', deleted_items: 'hpa_deleted_items',
+  archives: 'hpa_archives'
 };
 
 async function init(userDataDir, wasmBinaryPath) {

@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.0.0';
+const VERSION = '1.3.0';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };
@@ -1919,6 +1919,25 @@ function view_settings() {
   for (const r of del) out += '<tr><td>' + U.esc_html(r.table_key) + '</td><td>' + U.esc_html(r.item_title || '—') + '</td><td>' + U.esc_html(r.deleted_at) + '</td><td><div class="hpa-row-actions"><a class="hpa-edit" href="' + U.esc_url(actionUrl('hpa_restore_deleted_item', { id: r.id })) + '">بازیابی</a><a class="hpa-delete" onclick="return confirm(\'حذف دائمی؟\')" href="' + U.esc_url(actionUrl('hpa_permanent_delete_item', { id: r.id })) + '">حذف دائمی</a></div></td></tr>';
   out += '</tbody></table></div></section>';
 
+  // Archive (snapshot + reset to zero)
+  const agroups = archive_groups();
+  out += '<section class="hpa-card hpa-archive-card"><h2>بایگانی و شروع دورهٔ جدید</h2><p class="hpa-muted">بخش‌های انتخابی را بایگانی کن: یک نسخهٔ کامل ذخیره می‌شود و سپس آن داده‌ها و اعدادشان صفر می‌شوند تا از نو شروع کنی. تعهدات باز (بدهی/وام/چک پرداخت‌نشده و طلب وصول‌نشده) پاک نمی‌شوند. بعداً می‌توانی از هر بایگانی خروجی PDF بگیری.</p>';
+  out += form_open('hpa_save_archive');
+  out += '<label class="hpa-col-full">عنوان بایگانی<input name="archive_title" placeholder="مثلاً پایان سال ۱۴۰۴"></label>';
+  out += '<div class="hpa-archive-groups"><label class="hpa-checkline hpa-archive-all"><input type="checkbox" name="group_all" value="1"> <strong>همه‌چیز</strong></label>';
+  for (const k in agroups) out += '<label class="hpa-checkline"><input type="checkbox" name="group_' + k + '" value="1"> ' + U.esc_html(agroups[k]) + '</label>';
+  out += '</div>';
+  out += '<button class="hpa-btn hpa-btn-danger" type="submit" onclick="return confirm(\'مطمئنی؟ داده‌های انتخاب‌شده صفر و پاک می‌شوند. یک نسخهٔ بایگانی برای خروجی PDF ذخیره می‌ماند. این کار قابل بازگشت خودکار نیست.\')">بایگانی و صفر کردن</button></form>';
+  const archs = D.all('SELECT * FROM hpa_archives ORDER BY id DESC LIMIT 100');
+  out += '<h3 class="hpa-settings-subhead">بایگانی‌های ثبت‌شده</h3>';
+  if (!archs.length) out += '<p class="hpa-muted">هنوز بایگانی‌ای ثبت نشده است.</p>';
+  else {
+    out += '<div class="hpa-table-wrap"><table class="hpa-table"><thead><tr><th>عنوان</th><th>تاریخ</th><th>بخش‌ها</th><th>عملیات</th></tr></thead><tbody>';
+    for (const r of archs) { let scope = []; try { scope = JSON.parse(r.scope || '[]'); } catch (e) { } out += '<tr><td>' + U.esc_html(r.title) + '</td><td>' + U.esc_html(r.jalali_date) + '</td><td>' + U.esc_html(scope.join('، ')) + '</td><td><div class="hpa-row-actions"><a class="hpa-edit" href="/archive-report?id=' + U.esc_attr(r.id) + '&hpa_token=' + U.esc_attr(CTX.token) + '" target="_blank" rel="noopener">دانلود PDF</a>' + delete_button('hpa_delete_archive', r.id, 'settings') + '</div></td></tr>'; }
+    out += '</tbody></table></div>';
+  }
+  out += '</section>';
+
   out += '<section class="hpa-card hpa-about-card"><h2>درباره ' + U.esc_html(APP_NAME) + '</h2><p class="hpa-muted">' + U.esc_html(APP_SUBTITLE) + ' — نسخهٔ ' + U.esc_html(VERSION) + '</p></section>';
   return out;
 }
@@ -1932,6 +1951,123 @@ function save_settings(post) {
   D.setOption('hpa_settings', s);
   D.setOption('person_labels', { hamidreza: P(post, 'person_hamidreza', 'خودم') || 'خودم', samira: P(post, 'person_samira', 'همسر') || 'همسر', joint: P(post, 'person_joint', 'مشترک') || 'مشترک' });
   return 'settings';
+}
+
+// ================= ARCHIVE (snapshot + reset to zero) =================
+function archive_groups() {
+  return {
+    tx: 'تراکنش‌ها',
+    accounts: 'حساب‌ها',
+    assets: 'دارایی‌ها',
+    qard: 'قرض‌ها (بدهی ساده)',
+    liabilities: 'بدهی‌ها (وام، چک، تکرارشونده)',
+    receivables: 'طلب‌ها'
+  };
+}
+function save_archive(post) {
+  _accountsCache = null; _balancesCache = null;
+  const groups = archive_groups();
+  let selected = [];
+  if (PB(post, 'group_all')) selected = Object.keys(groups);
+  else for (const k in groups) if (PB(post, 'group_' + k)) selected.push(k);
+  if (!selected.length) return 'settings';
+  const G = new Set(selected);
+  const title = P(post, 'archive_title') || ('بایگانی ' + today_jalali());
+  const snap = {}; const summary = {};
+  const add = (table, rows) => { if (rows && rows.length) snap[table] = (snap[table] || []).concat(rows); };
+  const inPlaceholders = (ids) => ids.map(() => '?').join(',');
+
+  const wipeAllTx = G.has('tx') || G.has('accounts');
+  if (wipeAllTx) {
+    const txs = D.all('SELECT * FROM hpa_transactions');
+    _balancesCache = null;
+    const bal = calculate_balances();
+    if (G.has('tx')) summary.tx = { label: groups.tx, count: txs.length, total: transaction_sum_toman('income') };
+    if (G.has('accounts')) {
+      const accts = D.all('SELECT * FROM hpa_accounts');
+      let totalBal = 0; for (const a of accts) totalBal += amount_to_toman(bal[a.id] || 0, a.currency);
+      summary.accounts = { label: groups.accounts, count: accts.length, total: totalBal };
+      add('hpa_accounts', accts);
+    }
+    add('hpa_transactions', txs);
+    add('hpa_transaction_items', D.all('SELECT * FROM hpa_transaction_items'));
+    add('hpa_transaction_splits', D.all('SELECT * FROM hpa_transaction_splits'));
+    D.run('DELETE FROM hpa_transactions'); D.run('DELETE FROM hpa_transaction_items'); D.run('DELETE FROM hpa_transaction_splits');
+    if (G.has('accounts')) D.run('DELETE FROM hpa_accounts');
+    else D.run('UPDATE hpa_accounts SET opening_balance=0, updated_at=?', [U.now_mysql()]); // absolute zero
+  }
+  if (G.has('assets')) {
+    const assets = D.all('SELECT * FROM hpa_assets');
+    let cur = 0; for (const a of assets) cur += asset_valuation(a).current_total;
+    summary.assets = { label: groups.assets, count: assets.length, total: cur };
+    add('hpa_assets', assets); add('hpa_asset_files', D.all('SELECT * FROM hpa_asset_files')); add('hpa_goals', D.all('SELECT * FROM hpa_goals'));
+    add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE type IN ('asset_buy','asset_sell')"));
+    D.run('DELETE FROM hpa_assets'); D.run('DELETE FROM hpa_asset_files'); D.run('DELETE FROM hpa_goals'); D.run("DELETE FROM hpa_transactions WHERE type IN ('asset_buy','asset_sell')");
+  }
+  if (G.has('qard')) {
+    const paid = D.all("SELECT * FROM hpa_debts WHERE status='paid'");
+    summary.qard = { label: groups.qard, count: paid.length, total: rows_sum_toman(paid) };
+    add('hpa_debts', paid);
+    const ids = paid.map(r => r.id);
+    if (ids.length) { const ph = inPlaceholders(ids); add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE debt_id IN (" + ph + ") AND type IN ('debt_incur','debt_settlement')", ids)); D.run("DELETE FROM hpa_transactions WHERE debt_id IN (" + ph + ") AND type IN ('debt_incur','debt_settlement')", ids); D.run("DELETE FROM hpa_debts WHERE status='paid'"); }
+  }
+  if (G.has('liabilities')) {
+    let liaCount = 0, liaTotal = 0;
+    const loansPaid = D.all("SELECT * FROM hpa_loans WHERE status='paid'"); const loanIds = loansPaid.map(r => r.id);
+    add('hpa_loans', loansPaid); liaCount += loansPaid.length; liaTotal += rows_sum_toman(loansPaid, 'principal_amount');
+    if (loanIds.length) { const ph = inPlaceholders(loanIds); add('hpa_loan_installments', D.all("SELECT * FROM hpa_loan_installments WHERE loan_id IN (" + ph + ")", loanIds)); add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE source_loan_id IN (" + ph + ") AND type IN ('debt_incur','loan_installment')", loanIds)); D.run("DELETE FROM hpa_transactions WHERE source_loan_id IN (" + ph + ") AND type IN ('debt_incur','loan_installment')", loanIds); D.run("DELETE FROM hpa_loan_installments WHERE loan_id IN (" + ph + ")", loanIds); D.run("DELETE FROM hpa_loans WHERE status='paid'"); }
+    const checksPaid = D.all("SELECT * FROM hpa_checks WHERE status='paid'"); const checkIds = checksPaid.map(r => r.id);
+    add('hpa_checks', checksPaid); liaCount += checksPaid.length; for (const c of checksPaid) liaTotal += amount_to_toman((Number(c.amount_each) || 0) * Math.max(1, Number(c.check_count) || 0), c.currency);
+    if (checkIds.length) { const ph = inPlaceholders(checkIds); add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE check_id IN (" + ph + ") AND type='check_settlement'", checkIds)); D.run("DELETE FROM hpa_transactions WHERE check_id IN (" + ph + ") AND type='check_settlement'", checkIds); D.run("DELETE FROM hpa_checks WHERE status='paid'"); }
+    const recInactive = D.all("SELECT * FROM hpa_recurring WHERE status!='active'"); const recIds = recInactive.map(r => r.id);
+    add('hpa_recurring', recInactive); liaCount += recInactive.length;
+    if (recIds.length) { const ph = inPlaceholders(recIds); add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE recurring_id IN (" + ph + ") AND type='recurring_debt'", recIds)); D.run("DELETE FROM hpa_transactions WHERE recurring_id IN (" + ph + ") AND type='recurring_debt'", recIds); D.run("DELETE FROM hpa_recurring WHERE status!='active'"); }
+    summary.liabilities = { label: groups.liabilities, count: liaCount, total: liaTotal };
+  }
+  if (G.has('receivables')) {
+    const paid = D.all("SELECT * FROM hpa_receivables WHERE status='paid'");
+    summary.receivables = { label: groups.receivables, count: paid.length, total: rows_sum_toman(paid) };
+    add('hpa_receivables', paid);
+    const ids = paid.map(r => r.id);
+    if (ids.length) { const ph = inPlaceholders(ids); add('hpa_transactions', D.all("SELECT * FROM hpa_transactions WHERE receivable_id IN (" + ph + ") AND type='receivable_settlement'", ids)); D.run("DELETE FROM hpa_transactions WHERE receivable_id IN (" + ph + ") AND type='receivable_settlement'", ids); D.run("DELETE FROM hpa_receivables WHERE status='paid'"); }
+  }
+  D.insert('hpa_archives', {
+    title: title, scope: JSON.stringify(selected.map(k => groups[k] || k)), summary: JSON.stringify(summary),
+    data: JSON.stringify(snap), jalali_date: today_jalali(), gregorian_date: U.today_gregorian(), created_at: U.now_mysql()
+  });
+  _accountsCache = null; _balancesCache = null;
+  return 'settings';
+}
+function delete_archive(post) { D.del('hpa_archives', { id: PI(post, 'id') }); return 'settings'; }
+
+function render_archive_report(id) {
+  const a = D.get('SELECT * FROM hpa_archives WHERE id=?', [U.absint(id)]);
+  const styles = '<style>@page{size:A4;margin:14mm}html,body{margin:0}body{font-family:"IRANSansXFaNum",Tahoma,sans-serif!important;direction:rtl;color:#0f172a;padding:16px;background:#fff}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 8px;border-bottom:1px solid #e2e8f0;padding-bottom:5px}p{margin:4px 0;color:#334155}table.rep{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}table.rep th,table.rep td{border:1px solid #e2e8f0;padding:6px 8px;text-align:right}table.rep th{background:#f1f5f9}.noprint{margin:0 0 14px}.noprint button{padding:9px 16px;border:0;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer}@media print{.noprint{display:none!important}}</style>';
+  const head = '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><link rel="stylesheet" href="/assets/css/app.css">' + styles + '<title>گزارش بایگانی</title></head><body>';
+  const foot = '<script>window.addEventListener("load",function(){setTimeout(function(){try{window.print();}catch(e){}},450);});</script></body></html>';
+  if (!a) return head + '<p>بایگانی یافت نشد.</p>' + foot;
+  let summary = {}, data = {}, scope = [];
+  try { summary = JSON.parse(a.summary || '{}'); } catch (e) { }
+  try { data = JSON.parse(a.data || '{}'); } catch (e) { }
+  try { scope = JSON.parse(a.scope || '[]'); } catch (e) { }
+  const types = transaction_types();
+  let body = '<div class="noprint"><button onclick="window.print()">چاپ / ذخیره PDF</button></div>';
+  body += '<h1>گزارش بایگانی: ' + U.esc_html(a.title) + '</h1>';
+  body += '<p>تاریخ بایگانی: ' + U.esc_html(a.jalali_date) + ' — ' + U.esc_html(APP_NAME) + '</p>';
+  body += '<p>بخش‌های بایگانی‌شده: ' + U.esc_html(scope.join('، ')) + '</p>';
+  body += '<h2>خلاصه</h2><table class="rep"><thead><tr><th>بخش</th><th>تعداد</th><th>جمع (تومان)</th></tr></thead><tbody>';
+  for (const k in summary) { const s = summary[k]; body += '<tr><td>' + U.esc_html(s.label || k) + '</td><td>' + U.esc_html(U.number_format_i18n(s.count || 0)) + '</td><td>' + U.esc_html(fmt_money(s.total || 0, 'toman')) + '</td></tr>'; }
+  body += '</tbody></table>';
+  const tbl = (rows, heads, cells) => { let h = '<table class="rep"><thead><tr>'; for (const x of heads) h += '<th>' + U.esc_html(x) + '</th>'; h += '</tr></thead><tbody>'; for (const r of rows) { h += '<tr>'; for (const c of cells(r)) h += '<td>' + c + '</td>'; h += '</tr>'; } return h + '</tbody></table>'; };
+  if (data.hpa_transactions && data.hpa_transactions.length) body += '<h2>تراکنش‌ها (' + U.number_format_i18n(data.hpa_transactions.length) + ')</h2>' + tbl(data.hpa_transactions, ['تاریخ', 'نوع', 'مبلغ', 'توضیح'], r => [U.esc_html(r.jalali_date), U.esc_html(types[r.type] || r.type), U.esc_html(fmt_money(r.amount, r.currency)), U.esc_html(U.wp_trim_words(r.description || '', 12))]);
+  if (data.hpa_accounts && data.hpa_accounts.length) body += '<h2>حساب‌ها (' + U.number_format_i18n(data.hpa_accounts.length) + ')</h2>' + tbl(data.hpa_accounts, ['نام', 'نوع', 'ارز', 'موجودی اولیه'], r => [U.esc_html(r.name), U.esc_html((account_types()[r.type] || r.type)), U.esc_html(currencies()[r.currency] || r.currency), U.esc_html(fmt_money(r.opening_balance, r.currency))]);
+  if (data.hpa_assets && data.hpa_assets.length) body += '<h2>دارایی‌ها (' + U.number_format_i18n(data.hpa_assets.length) + ')</h2>' + tbl(data.hpa_assets, ['عنوان', 'گروه', 'قیمت خرید'], r => [U.esc_html(r.title), U.esc_html(asset_groups()[r.asset_group] || r.asset_group), U.esc_html(fmt_money(r.purchase_price, r.currency))]);
+  if (data.hpa_debts && data.hpa_debts.length) body += '<h2>قرض‌ها (' + U.number_format_i18n(data.hpa_debts.length) + ')</h2>' + tbl(data.hpa_debts, ['شخص', 'مبلغ', 'تاریخ', 'وضعیت'], r => [U.esc_html(r.person_name), U.esc_html(fmt_money(r.amount, r.currency)), U.esc_html(r.jalali_date), U.esc_html(status_labels()[r.status] || r.status)]);
+  if (data.hpa_loans && data.hpa_loans.length) body += '<h2>وام‌ها (' + U.number_format_i18n(data.hpa_loans.length) + ')</h2>' + tbl(data.hpa_loans, ['عنوان', 'وام‌دهنده', 'اصل وام'], r => [U.esc_html(r.title), U.esc_html(r.lender || '—'), U.esc_html(fmt_money(r.principal_amount, r.currency))]);
+  if (data.hpa_checks && data.hpa_checks.length) body += '<h2>چک‌ها (' + U.number_format_i18n(data.hpa_checks.length) + ')</h2>' + tbl(data.hpa_checks, ['عنوان', 'تعداد', 'مبلغ هر چک'], r => [U.esc_html(r.title), U.esc_html(U.number_format_i18n(r.check_count)), U.esc_html(fmt_money(r.amount_each, r.currency))]);
+  if (data.hpa_recurring && data.hpa_recurring.length) body += '<h2>تکرارشونده‌ها (' + U.number_format_i18n(data.hpa_recurring.length) + ')</h2>' + tbl(data.hpa_recurring, ['عنوان', 'مبلغ', 'دوره'], r => [U.esc_html(r.title), U.esc_html(fmt_money(r.amount, r.currency)), U.esc_html(r.interval_type)]);
+  if (data.hpa_receivables && data.hpa_receivables.length) body += '<h2>طلب‌ها (' + U.number_format_i18n(data.hpa_receivables.length) + ')</h2>' + tbl(data.hpa_receivables, ['شخص', 'مبلغ', 'تاریخ', 'وضعیت'], r => [U.esc_html(r.person_name), U.esc_html(fmt_money(r.amount, r.currency)), U.esc_html(r.jalali_date), U.esc_html(status_labels()[r.status] || r.status)]);
+  return head + body + foot;
 }
 
 // ================= dispatchers =================
@@ -1967,7 +2103,8 @@ const ACTIONS = {
   hpa_save_rate: (p) => save_rate(p), hpa_delete_rate: (p) => delete_rate(p),
   hpa_reconcile_account: (p) => reconcile_account(p),
   hpa_restore_deleted_item: (p) => restore_deleted_item(p), hpa_permanent_delete_item: (p) => permanent_delete_item(p),
-  hpa_save_settings: (p) => save_settings(p)
+  hpa_save_settings: (p) => save_settings(p),
+  hpa_save_archive: (p) => save_archive(p), hpa_delete_archive: (p) => delete_archive(p)
 };
 
 // async-capable actions (rates fetch, sync) handled separately in server
@@ -1998,7 +2135,8 @@ function import_backup(data) {
 
 Object.assign(module.exports, {
   renderTab, handleAction, setUploadDir, export_backup_json, import_backup,
-  future_obligation_items, resolve_recurring_payment_selection, get_goals
+  future_obligation_items, resolve_recurring_payment_selection, get_goals,
+  render_archive_report
 });
 
 

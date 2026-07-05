@@ -168,6 +168,14 @@ function createServer(rendererDir) {
         return res.end(lockPage(''));
       }
       if (pathname === '/action') return handleAction(req, res, u, req.method);
+      if (pathname === '/archive-report') {
+        const query = parseQuery(u);
+        if (query.hpa_token !== TOKEN) { res.writeHead(403); return res.end('bad token'); }
+        core.setContext(query, TOKEN);
+        const html = core.render_archive_report(query.id);
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+        return res.end(html);
+      }
       if (pathname === '/' || pathname === '/index.html') {
         const query = parseQuery(u);
         const html = htmlDocument(query);

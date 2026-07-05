@@ -34,7 +34,7 @@ It is built with **Electron**. The UI is server-rendered locally (the same HTML/
 - **Assets** — gold, silver, crypto, cash currency, property, car, valuables; financial **goals** with progress; **live market valuation** and unrealized/realized profit & loss.
 - **Reports** — financial-health summary, savings & debt-to-asset ratios, money in/out routes, essential vs. non-essential spending, per-person breakdown, 6-month income/expense chart, spending-by-place, financial calendar, per-group asset P&L, and one-click **PDF export** (print) and **full JSON backup / restore**.
 - **Rates** — currency, gold and crypto rates with one-click **online update** (TGJU) plus manual entry.
-- **Settings** — light/dark theme, default currency, person labels, optional **PIN lock**, recycle bin (soft-delete restore), and **site connection** (see below).
+- **Settings** — light/dark theme, default currency, person labels, optional **PIN lock**, recycle bin (soft-delete restore), **site connection** (see below), and **Archive** — snapshot selected data groups (transactions, accounts, assets, debts, loans, cheques, receivables, or everything) and reset their figures to zero to start a new period; open obligations are preserved; each archive can be exported to **PDF**.
 - **Recycle bin** — deletes are soft; restore anything from Settings.
 - **Jalali (Shamsi) calendar** everywhere, with a built-in date picker and Persian numerals.
 
@@ -80,6 +80,8 @@ npm run dist         # build the Windows installer + portable into ./release
 | ![Dashboard](docs/screenshot-dashboard.png) | ![Reports](docs/screenshot-reports.png) |
 | **Assets** | **Debts & obligations** |
 | ![Assets](docs/screenshot-assets.png) | ![Debts](docs/screenshot-debt.png) |
+| **Archive (close period)** | **Transactions** |
+| ![Archive](docs/screenshot-archive.png) | ![Transactions](docs/screenshot-transactions.png) |
 
 ## License
 
