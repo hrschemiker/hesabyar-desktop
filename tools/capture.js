@@ -49,6 +49,9 @@ function seed() {
   act('hpa_save_asset', { title: 'سکه تمام بهار', person_key: 'hamidreza', asset_group: 'gold', purity: '18 عیار', weight: '65', unit: 'گرم', purchase_price: '210,000,000', currency: 'toman', jalali_date: '1403/02/15', purchase_place: 'بازار طلا', funding_source: 'personal', goal_id: '1', is_active: '1' });
   act('hpa_save_asset', { title: 'بیت‌کوین', person_key: 'samira', asset_group: 'crypto', model_crypto: 'btc', quantity: '0.12', unit: 'BTC', purchase_price: '380,000,000', currency: 'toman', jalali_date: '1403/03/01', funding_source: 'personal', is_active: '1' });
   act('hpa_save_asset', { title: 'گوشی و لپ‌تاپ', person_key: 'joint', asset_group: 'valuable', quantity: '2', unit: 'عدد', purchase_price: '120,000,000', currency: 'toman', jalali_date: '1403/01/20', funding_source: 'personal', is_active: '1' });
+  // financing movements — shown in the new "money movements" report, NOT counted as expense
+  act('hpa_save_transaction', { person_key: 'hamidreza', type: 'debt_settlement', account_id: '1', debt_id: '1', amount: '4,000,000', currency: 'toman', jalali_date: ym + '18', description: 'بازپرداخت بخشی از قرض آقای رضایی', status: 'done', hpa_items: '[]' });
+  act('hpa_save_transaction', { person_key: 'hamidreza', type: 'asset_buy', account_id: '1', asset_id: '1', amount: '30,000,000', currency: 'toman', jalali_date: ym + '16', description: 'خرید سکه', status: 'done', hpa_items: '[]' });
 }
 
 async function run() {

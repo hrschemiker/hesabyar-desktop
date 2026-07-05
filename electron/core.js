@@ -38,6 +38,15 @@ function transaction_types() {
     receivable_settlement: 'تسویه طلب', check_settlement: 'تسویه چک', asset_buy: 'خرید دارایی', asset_sell: 'فروش دارایی'
   };
 }
+// ---- Accounting classification ----
+// True consumption expense (what actually reduces net worth). Everything else that
+// moves money — borrowing/repaying principal, buying/selling assets, collecting a
+// loan you gave — is "financing" and is NOT income or expense.
+function expense_types() { return ['expense', 'recurring_debt']; }
+function financing_out_types() { return ['loan_installment', 'debt_settlement', 'check_settlement', 'asset_buy']; }
+function financing_in_types() { return ['debt_incur', 'asset_sell', 'receivable_settlement']; }
+function cash_out_types() { return expense_types().concat(financing_out_types()); }
+function cash_in_types() { return ['income'].concat(financing_in_types()); }
 function asset_groups() { return { gold: 'طلا', silver: 'نقره', crypto: 'کریپتو', cash_currency: 'ارز نقدی', property: 'ملک', car: 'خودرو', valuable: 'کالای ارزشمند', other: 'سایر' }; }
 function asset_group_icon(g) { const i = { gold: '🥇', silver: '🥈', crypto: '₿', cash_currency: '💵', property: '🏠', car: '🚗', valuable: '💍', other: '📦' }; return i[g] || '💼'; }
 function status_labels() { return { open: 'باز', done: 'انجام‌شده', paid: 'تسویه‌شده', partial: 'بخشی تسویه‌شده', cancelled: 'لغوشده' }; }
@@ -990,7 +999,7 @@ function view_dashboard() {
   const recvTotal = table_sum_toman('receivables', 'amount', "status!='paid'");
   const range = current_jalali_month_gregorian_range();
   const income = transaction_sum_toman('income', "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
-  const expense = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'], "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
+  const expense = transaction_sum_toman(expense_types(), "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const monthlyNet = income - expense;
   const usdRate = latest_rate_price('usd');
   const gold18Rate = latest_rate_price('gold18');
@@ -1577,7 +1586,7 @@ function next_month_minimum_liquidity() {
 
 // ================= charts =================
 function expense_chart(legend, currentMonthOnly, percentList) {
-  let where = "t.type IN ('expense','loan_installment','recurring_debt','debt_settlement','check_settlement','asset_buy') AND t.status!='cancelled'";
+  let where = "t.type IN ('expense','recurring_debt') AND t.status!='cancelled'";
   if (currentMonthOnly) { const range = current_jalali_month_gregorian_range(); where += " AND t.gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'"; }
   const rows = D.all("SELECT t.amount, t.currency, c.name, c.icon, c.color, t.category_id, t.hide_amount FROM hpa_transactions t LEFT JOIN hpa_categories c ON c.id=t.category_id WHERE " + where + " ORDER BY t.gregorian_date DESC LIMIT 500");
   if (!rows.length) return '<p class="hpa-muted">برای ساخت نمودار، چند هزینه ثبت کن.</p>';
@@ -1615,8 +1624,8 @@ function monthly_svg_chart() {
     const last = m <= 6 ? 31 : (m <= 11 ? 30 : 29);
     const start = U.jalali_to_gregorian_date(U.pad(y, 4) + '/' + U.pad(m, 2) + '/01');
     const end = U.jalali_to_gregorian_date(U.pad(y, 4) + '/' + U.pad(m, 2) + '/' + U.pad(last, 2));
-    const inc = rows_sum_toman(D.all("SELECT amount,currency FROM hpa_transactions WHERE type IN ('income','asset_sell','receivable_settlement') AND status!='cancelled' AND gregorian_date BETWEEN ? AND ?", [start, end]));
-    const exp = rows_sum_toman(D.all("SELECT amount,currency FROM hpa_transactions WHERE type IN ('expense','loan_installment','recurring_debt','debt_settlement','check_settlement','asset_buy') AND status!='cancelled' AND gregorian_date BETWEEN ? AND ?", [start, end]));
+    const inc = rows_sum_toman(D.all("SELECT amount,currency FROM hpa_transactions WHERE type='income' AND status!='cancelled' AND gregorian_date BETWEEN ? AND ?", [start, end]));
+    const exp = rows_sum_toman(D.all("SELECT amount,currency FROM hpa_transactions WHERE type IN ('expense','recurring_debt') AND status!='cancelled' AND gregorian_date BETWEEN ? AND ?", [start, end]));
     data.push([months[m] || String(m), inc, exp]);
   }
   const max = Math.max(1, ...data.map(d => Math.max(d[1], d[2])));
@@ -1632,7 +1641,7 @@ function account_balance_trend_svg() {
   let out = '<div class="hpa-mini-trends">'; const monthsR = last_jalali_month_ranges(6);
   for (const a of accounts) {
     const vals = [];
-    for (const m of monthsR) { const inn = transaction_sum_toman(['income', 'asset_sell', 'receivable_settlement'], "account_id=" + a.id + " AND gregorian_date<='" + m.end + "'"); const outg = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'], "account_id=" + a.id + " AND gregorian_date<='" + m.end + "'"); vals.push(amount_to_toman(a.opening_balance, a.currency) + inn - outg); }
+    for (const m of monthsR) { const inn = transaction_sum_toman(cash_in_types(), "account_id=" + a.id + " AND gregorian_date<='" + m.end + "'"); const outg = transaction_sum_toman(cash_out_types(), "account_id=" + a.id + " AND gregorian_date<='" + m.end + "'"); vals.push(amount_to_toman(a.opening_balance, a.currency) + inn - outg); }
     const max = Math.max(...vals) || 1; let bars = ''; for (const v of vals) bars += '<span style="height:' + Math.max(6, Math.round(v * 80 / max)) + 'px"></span>';
     out += '<div class="hpa-trend-row"><b>' + U.esc_html(a.name) + '</b><div class="hpa-spark">' + bars + '</div></div>';
   }
@@ -1643,7 +1652,7 @@ function account_balance_trend_svg() {
 function report_financial_overview_text() {
   const range = current_jalali_month_gregorian_range();
   const income = transaction_sum_toman('income', "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
-  const expense = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'], "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
+  const expense = transaction_sum_toman(expense_types(), "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const cashflow = income - expense; const assets = asset_summary_totals();
   const debts = table_sum_toman('debts', 'amount', "status!='paid'") + loan_remaining_total_toman() + check_open_total_toman();
   const ratio = income > 0 ? Math.round(expense * 100 / income) : 0;
@@ -1656,7 +1665,7 @@ function report_financial_overview_text() {
 function report_accounting_health_ratios() {
   const range = current_jalali_month_gregorian_range();
   const income = transaction_sum_toman('income', "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
-  const expense = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement'], "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
+  const expense = transaction_sum_toman(expense_types(), "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const netSavings = income - expense;
   const assets = asset_summary_totals();
   const debtTotal = table_sum_toman('debts', 'amount', "status!='paid'") + loan_remaining_total_toman() + check_open_total_toman();
@@ -1668,8 +1677,8 @@ function report_accounting_health_ratios() {
 }
 function report_money_routes() {
   const range = current_jalali_month_gregorian_range();
-  const outTypes = ['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'];
-  const inTypes = ['income', 'asset_sell', 'receivable_settlement'];
+  const outTypes = expense_types();
+  const inTypes = ['income'];
   const outv = {}; for (const t of outTypes) outv[t] = transaction_sum_toman(t, "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const inv = {}; for (const t of inTypes) inv[t] = transaction_sum_toman(t, "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const labels = transaction_types();
@@ -1683,7 +1692,7 @@ function report_money_routes() {
 }
 function report_essential_expenses() {
   const range = current_jalali_month_gregorian_range();
-  const rows = D.all("SELECT c.is_essential, t.amount, t.currency FROM hpa_transactions t LEFT JOIN hpa_categories c ON c.id=t.category_id WHERE t.status!='cancelled' AND t.type IN ('expense','loan_installment','recurring_debt','debt_settlement','check_settlement') AND t.gregorian_date BETWEEN ? AND ?", [range[0], range[1]]);
+  const rows = D.all("SELECT c.is_essential, t.amount, t.currency FROM hpa_transactions t LEFT JOIN hpa_categories c ON c.id=t.category_id WHERE t.status!='cancelled' AND t.type IN ('expense','recurring_debt') AND t.gregorian_date BETWEEN ? AND ?", [range[0], range[1]]);
   let ess = 0, non = 0; for (const r of rows) { if (Number(r.is_essential !== undefined && r.is_essential !== null ? r.is_essential : 1)) ess += amount_to_toman(r.amount, r.currency); else non += amount_to_toman(r.amount, r.currency); }
   return '<section class="hpa-card"><h2>هزینه‌های ضروری و غیرضروری ماه</h2><div class="hpa-metric-row"><span>ضروری</span><strong>' + U.esc_html(fmt_money(ess, 'toman')) + '</strong><span>غیرضروری</span><strong>' + U.esc_html(fmt_money(non, 'toman')) + '</strong></div><p class="hpa-muted">ضروری/غیرضروری بودن از تنظیمات موضوعات تراکنش خوانده می‌شود.</p></section>';
 }
@@ -1735,7 +1744,7 @@ function report_networth_affecting() {
 function report_month_comparison() {
   const ranges = last_jalali_month_ranges(2); if (ranges.length < 2) return ''; const cur = ranges[1], prev = ranges[0];
   const ci = transaction_sum_toman('income', "gregorian_date BETWEEN '" + cur.start + "' AND '" + cur.end + "'"); const pi = transaction_sum_toman('income', "gregorian_date BETWEEN '" + prev.start + "' AND '" + prev.end + "'");
-  const exps = ['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'];
+  const exps = expense_types();
   const ce = transaction_sum_toman(exps, "gregorian_date BETWEEN '" + cur.start + "' AND '" + cur.end + "'"); const pe = transaction_sum_toman(exps, "gregorian_date BETWEEN '" + prev.start + "' AND '" + prev.end + "'");
   const pct = (a, b) => b > 0 ? Math.round((a - b) * 100 / b) : 0;
   return '<section class="hpa-card"><h2>مقایسه ماه جاری با ماه قبل</h2><div class="hpa-metric-row"><span>تغییر درآمد</span><strong class="' + (ci >= pi ? 'hpa-positive' : 'hpa-negative') + '">' + U.esc_html(pct(ci, pi)) + '%</strong><span>تغییر هزینه</span><strong class="' + (ce <= pe ? 'hpa-positive' : 'hpa-negative') + '">' + U.esc_html(pct(ce, pe)) + '%</strong><span>پس‌انداز خالص</span><strong>' + U.esc_html(fmt_money(ci - ce, 'toman')) + '</strong></div></section>';
@@ -1743,7 +1752,7 @@ function report_month_comparison() {
 function report_cashflow_and_calendar() {
   const range = current_jalali_month_gregorian_range();
   const income = transaction_sum_toman('income', "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
-  const expense = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'], "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
+  const expense = transaction_sum_toman(expense_types(), "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'");
   const net = income - expense;
   let out = '<section class="hpa-two"><div class="hpa-card"><h2>گزارش جریان نقدی ماه شمسی</h2><div class="hpa-list-row"><b>ورودی ماه</b><em class="hpa-positive">' + U.esc_html(fmt_money(income, 'toman')) + '</em></div><div class="hpa-list-row"><b>خروجی ماه</b><em class="hpa-negative">' + U.esc_html(fmt_money(expense, 'toman')) + '</em></div><div class="hpa-list-row"><b>خالص جریان نقدی</b><em class="' + (net >= 0 ? 'hpa-positive' : 'hpa-negative') + '">' + U.esc_html((net >= 0 ? '+' : '-') + fmt_money(Math.abs(net), 'toman')) + '</em></div></div>';
   const events = [];
@@ -1773,11 +1782,32 @@ function report_item_spending() {
   }
   return out + '</section>';
 }
+function report_financing_summary() {
+  const range = current_jalali_month_gregorian_range();
+  const labels = transaction_types();
+  const w = "gregorian_date BETWEEN '" + range[0] + "' AND '" + range[1] + "'";
+  const inRows = financing_in_types().map(t => [t, transaction_sum_toman(t, w)]);
+  const outRows = financing_out_types().map(t => [t, transaction_sum_toman(t, w)]);
+  const inTotal = inRows.reduce((s, x) => s + x[1], 0);
+  const outTotal = outRows.reduce((s, x) => s + x[1], 0);
+  let out = '<section class="hpa-card hpa-financing-card"><div class="hpa-section-head"><div><h2>جابه‌جایی پول و بازپرداخت‌ها (ماه جاری)</h2><p class="hpa-muted">اینها درآمد یا هزینه نیستند؛ فقط جابه‌جایی پول‌اند (گرفتن/پس‌دادن قرض و وام، خرید/فروش دارایی، وصول طلب) و در «درآمد/هزینهٔ ماه» شمرده نمی‌شوند. روی موجودی حساب اثر می‌گذارند ولی روی «ارزش خالص دارایی» نه.</p></div></div><div class="hpa-two">';
+  out += '<div class="hpa-card hpa-subcard"><h3>ورودی پول (تأمین مالی)</h3>';
+  let anyIn = false;
+  for (const [t, v] of inRows) if (v > 0) { anyIn = true; out += '<div class="hpa-list-row"><b>' + U.esc_html(labels[t] || t) + '</b><em class="hpa-positive">' + U.esc_html(fmt_money(v, 'toman')) + '</em></div>'; }
+  if (!anyIn) out += '<p class="hpa-muted">موردی در این ماه نیست.</p>';
+  out += '<div class="hpa-list-row"><b>جمع ورودی</b><em>' + U.esc_html(fmt_money(inTotal, 'toman')) + '</em></div></div>';
+  out += '<div class="hpa-card hpa-subcard"><h3>خروجی پول (بازپرداخت/خرید دارایی)</h3>';
+  let anyOut = false;
+  for (const [t, v] of outRows) if (v > 0) { anyOut = true; out += '<div class="hpa-list-row"><b>' + U.esc_html(labels[t] || t) + '</b><em class="hpa-negative">' + U.esc_html(fmt_money(v, 'toman')) + '</em></div>'; }
+  if (!anyOut) out += '<p class="hpa-muted">موردی در این ماه نیست.</p>';
+  out += '<div class="hpa-list-row"><b>جمع خروجی</b><em>' + U.esc_html(fmt_money(outTotal, 'toman')) + '</em></div></div></div></section>';
+  return out;
+}
 function view_reports() {
   let out = report_financial_overview_text();
   const balances = calculate_balances();
   const income = transaction_sum_toman('income');
-  const expense = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy']);
+  const expense = transaction_sum_toman(expense_types());
   const assetSummary = asset_summary_totals();
   const debtsTotal = table_sum_toman('debts', 'amount', "status!='paid'") + loan_remaining_total_toman() + check_open_total_toman();
   const recvTotal = table_sum_toman('receivables', 'amount', "status!='paid'");
@@ -1794,6 +1824,7 @@ function view_reports() {
   out += report_money_routes();
   out += report_essential_expenses();
   out += report_item_spending();
+  out += report_financing_summary();
   out += report_person_transfers_shared();
   out += '<section class="hpa-two"><div class="hpa-card"><h2>نمودار هزینه‌ها بر اساس موضوع</h2>' + expense_chart(true) + '</div><div class="hpa-card"><h2>درآمد و هزینه ۶ ماه اخیر</h2>' + monthly_svg_chart() + '</div></section>';
   out += '<section class="hpa-two"><div class="hpa-card"><h2>گزارش حساب‌ها</h2>';
@@ -1804,7 +1835,7 @@ function view_reports() {
   const p = persons();
   for (const key in p) {
     const pin = transaction_sum_toman('income', "person_key='" + key + "'");
-    const pex = transaction_sum_toman(['expense', 'loan_installment', 'recurring_debt', 'debt_settlement', 'check_settlement', 'asset_buy'], "person_key='" + key + "'");
+    const pex = transaction_sum_toman(expense_types(), "person_key='" + key + "'");
     const pas = asset_summary_totals("person_key='" + key + "'").current;
     out += '<div class="hpa-list-row"><span class="hpa-person-pill">' + U.esc_html(p[key]) + '</span><b>درآمد: ' + U.esc_html(fmt_money(pin, 'toman')) + '<br>هزینه: ' + U.esc_html(fmt_money(pex, 'toman')) + '</b><em>دارایی فعلی: ' + U.esc_html(fmt_money(pas, 'toman')) + '</em></div>';
   }
