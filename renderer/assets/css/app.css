@@ -11,11 +11,36 @@
 @font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Black.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
 @font-face { font-family: 'Gramophone'; src: url('/assets/fonts/GramophoneFaNum-Clean.ttf') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
 
+/* The bundled hpa.css (shared with the WordPress plugin) references a font family
+   named "HPAIranSans" whose URLs point at another plugin's folder that does not
+   exist in the desktop app. Re-map HPAIranSans to the bundled IRANSansX files so
+   every element that hpa.css styles with it renders correctly. app.css is loaded
+   AFTER hpa.css so these declarations win over the broken ones. */
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Thin.ttf') format('truetype'); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-UltraLight.ttf') format('truetype'); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Light.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-DemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-ExtraBold.ttf') format('truetype'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'HPAIranSans'; src: url('/assets/fonts/IRANSansXFaNum-Black.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+
 html, body { margin: 0; padding: 0; background: #eef2f9; }
-/* Global font: covers native selects/options, the Jalali date-picker popup and the
-   step wizard overlays (which are appended to <body>, outside .hpa-app). The brand
-   wordmark keeps Gramophone thanks to higher selector specificity below. */
-*, input, select, option, textarea, button, optgroup {
+/* Force IRANSansX everywhere. hpa.css styles most elements with its own
+   "HPAIranSans" family whose files are missing in the desktop app, so we both
+   re-map that family (above) AND override the font stack here to IRANSansXFaNum
+   — which is bundled and loads cleanly. app.css is linked AFTER hpa.css, so these
+   rules win. The list explicitly covers native selects/options plus the date-picker
+   and step-wizard overlays that hpa.css appends to <body> (outside .hpa-app). */
+* { font-family: 'IRANSansXFaNum', 'Segoe UI', Tahoma, sans-serif !important; }
+.hpa-app, .hpa-app *,
+.hpa-app input, .hpa-app select, .hpa-app option, .hpa-app optgroup, .hpa-app textarea, .hpa-app button,
+input, select, option, optgroup, textarea, button,
+.hpa-jdp, .hpa-jdp *,
+.hpa-transaction-wizard, .hpa-transaction-wizard *,
+.hpa-asset-wizard, .hpa-asset-wizard *,
+.hpa-mobile-wizard-launch, .hpa-mobile-asset-wizard-launch, .hpa-wizard-final-submit, .hpa-toast {
   font-family: 'IRANSansXFaNum', 'Segoe UI', Tahoma, sans-serif !important;
 }
 

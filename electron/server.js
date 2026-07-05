@@ -18,7 +18,7 @@ function parseQuery(u) { const q = {}; for (const [k, v] of u.searchParams.entri
 
 let UNLOCKED = false;
 function lockPage(msg) {
-  return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + U.esc_html(core.APP_NAME) + '</title><link rel="stylesheet" href="/assets/css/app.css"><link rel="stylesheet" href="/assets/css/hpa.css"></head><body><div class="hpa-app" dir="rtl"><div class="hpa-login-gate hpa-auth-gate"><form method="post" action="/unlock" class="hpa-login-box hpa-auth-card hpa-pin-card"><div class="hpa-auth-logo"><img src="/assets/img/logo.svg" width="72" alt=""></div><h2>' + U.esc_html(core.APP_NAME) + '</h2><p>قفل امنیتی — PIN را وارد کنید.</p>' + (msg ? '<p style="color:#dc2626">' + U.esc_html(msg) + '</p>' : '') + '<input type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus placeholder="PIN"><input type="hidden" name="hpa_token" value="' + TOKEN + '"><button class="hpa-btn hpa-btn-primary" type="submit">ورود</button></form></div></div></body></html>';
+  return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' + U.esc_html(core.APP_NAME) + '</title><link rel="stylesheet" href="/assets/css/hpa.css"><link rel="stylesheet" href="/assets/css/app.css"></head><body><div class="hpa-app" dir="rtl"><div class="hpa-login-gate hpa-auth-gate"><form method="post" action="/unlock" class="hpa-login-box hpa-auth-card hpa-pin-card"><div class="hpa-auth-logo"><img src="/assets/img/logo.svg" width="72" alt=""></div><h2>' + U.esc_html(core.APP_NAME) + '</h2><p>قفل امنیتی — PIN را وارد کنید.</p>' + (msg ? '<p style="color:#dc2626">' + U.esc_html(msg) + '</p>' : '') + '<input type="password" name="pin" inputmode="numeric" autocomplete="off" autofocus placeholder="PIN"><input type="hidden" name="hpa_token" value="' + TOKEN + '"><button class="hpa-btn hpa-btn-primary" type="submit">ورود</button></form></div></div></body></html>';
 }
 
 function htmlDocument(query) {
@@ -28,8 +28,8 @@ function htmlDocument(query) {
   return '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + U.esc_html(core.APP_NAME) + ' — ' + U.esc_html(core.APP_SUBTITLE) + '</title>' +
-    '<link rel="stylesheet" href="/assets/css/app.css">' +
     '<link rel="stylesheet" href="/assets/css/hpa.css">' +
+    '<link rel="stylesheet" href="/assets/css/app.css">' +
     '<link rel="icon" href="/assets/img/logo.svg">' +
     '</head><body>' + bodyHtml + '<script src="/assets/js/hpa.js" defer></script></body></html>';
 }
