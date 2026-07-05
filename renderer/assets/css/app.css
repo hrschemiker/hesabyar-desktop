@@ -70,8 +70,9 @@ input, select, option, optgroup, textarea, button,
 .hpa-btn-danger { background: #fef2f2 !important; color: #dc2626 !important; border: 1px solid #fecaca !important; font-weight: 800; }
 .hpa-btn-danger:hover { background: #fee2e2 !important; }
 
-/* keep app from feeling cramped in a desktop window */
-.hpa-main { max-width: 1180px; margin: 0 auto; }
+/* Fill the whole window like the website's full-screen mode (no artificial
+   max-width). Content stretches edge-to-edge minus the app's own padding. */
+.hpa-main { max-width: none !important; margin: 0 auto; width: 100%; }
 
 /* #6 — the tab title/summary must span full width (and stay centered) at every
    window size. .hpa-main is a CSS grid; force its items to stretch so the
@@ -81,4 +82,31 @@ input, select, option, optgroup, textarea, button,
 .hpa-tab-identity, .hpa-tab-sticky-summary { width: auto !important; box-sizing: border-box; }
 @media (max-width: 860px) {
   .hpa-tab-identity { margin-left: 0 !important; margin-right: 0 !important; }
+}
+
+/* Safe-area insets (Android edge-to-edge): MainActivity sets these CSS vars to the
+   system status-bar / navigation-bar / display-cutout sizes so the app never draws
+   under them (the Samsung overlap issue). On desktop the vars stay 0, every calc()
+   below collapses to its base value, and nothing changes.
+   These rules use !important and are declared AFTER hpa.css so they win over its own
+   mobile !important rules (equal specificity, later source order). */
+:root { --hpa-inset-top: 0px; --hpa-inset-right: 0px; --hpa-inset-bottom: 0px; --hpa-inset-left: 0px; }
+@media (max-width: 860px) {
+  /* push the whole app clear of the status bar / side cutouts */
+  .hpa-app {
+    padding-top: calc(8px + var(--hpa-inset-top)) !important;
+    padding-left: calc(10px + var(--hpa-inset-left)) !important;
+    padding-right: calc(10px + var(--hpa-inset-right)) !important;
+    box-sizing: border-box;
+  }
+  /* sticky headers must stop below the status bar, not under it, when scrolled */
+  .hpa-top { top: calc(8px + var(--hpa-inset-top)) !important; }
+  .hpa-tab-sticky-summary { top: calc(10px + var(--hpa-inset-top)) !important; }
+  .hpa-toast { top: calc(24px + var(--hpa-inset-top)) !important; }
+  /* bottom-anchored UI lifts above the navigation / back-home bar */
+  .hpa-mobile-nav { bottom: calc(10px + var(--hpa-inset-bottom)) !important; }
+  .hpa-mobile-fab { bottom: calc(82px + var(--hpa-inset-bottom)) !important; }
+  .hpa-wizard-next { bottom: calc(10px + var(--hpa-inset-bottom)) !important; }
+  .hpa-wizard-foot { padding-bottom: calc(10px + var(--hpa-inset-bottom)) !important; }
+  .hpa-main { padding-bottom: calc(92px + var(--hpa-inset-bottom)) !important; }
 }

@@ -141,6 +141,7 @@ async function handleAction(req, res, u, method) {
     // default sync DB actions
     core.setContext(query, TOKEN);
     const tab = core.handleAction(action, post, files);
+    sync.scheduleAutoSync(); // push this change to the site in the background
     return redirect(res, tab);
   } catch (e) {
     res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });

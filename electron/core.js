@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };
@@ -1878,7 +1878,16 @@ function view_settings() {
   const s = settings();
   const p = persons();
   const sync = D.getOption('site_sync', { site_url: '', username: '', token: '', enabled: 0, last_result: '' });
-  let out = '<section class="hpa-card"><h2>ظاهر و پیش‌فرض‌ها</h2>' + form_open('hpa_save_settings');
+  // Quick-access hub — on narrow/mobile the bottom nav only shows 5 tabs, so the
+  // rest live here (auto-hidden on wide screens via .hpa-mobile-settings-hub).
+  let out = '<section class="hpa-card hpa-mobile-settings-hub"><h2>دسترسی سریع</h2><p class="hpa-muted">بخش‌هایی که در منوی پایینِ موبایل جا نمی‌شوند از اینجا در دسترس‌اند.</p><div class="hpa-settings-grid">'
+    + '<a href="' + U.esc_url(buildUrl({ hpa_tab: 'accounts' })) + '">💳 حساب‌ها</a>'
+    + '<a href="' + U.esc_url(buildUrl({ hpa_tab: 'categories' })) + '">🏷️ موضوعات</a>'
+    + '<a href="' + U.esc_url(buildUrl({ hpa_tab: 'debt' })) + '">📉 بدهی، وام و چک</a>'
+    + '<a href="' + U.esc_url(buildUrl({ hpa_tab: 'receivable' })) + '">📈 طلب‌ها</a>'
+    + '<a href="' + U.esc_url(buildUrl({ hpa_tab: 'rates' })) + '">⚙️ نرخ‌ها</a>'
+    + '</div></section>';
+  out += '<section class="hpa-card"><h2>ظاهر و پیش‌فرض‌ها</h2>' + form_open('hpa_save_settings');
   out += '<div class="hpa-form-grid"><label>حالت ظاهری<select name="theme_mode"><option value="light"' + U.selected(s.theme_mode || 'light', 'light') + '>روشن</option><option value="dark"' + U.selected(s.theme_mode || 'light', 'dark') + '>تیره</option></select></label>';
   out += '<label>واحد پول پیش‌فرض<select name="default_currency">';
   const curr = currencies(); for (const k in curr) out += '<option value="' + U.esc_attr(k) + '"' + U.selected(s.default_currency || 'toman', k) + '>' + U.esc_html(curr[k]) + '</option>';

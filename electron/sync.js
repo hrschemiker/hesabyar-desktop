@@ -139,4 +139,14 @@ async function autoSync() {
   return full(true);
 }
 
-module.exports = { saveAndLogin, test, pull, push, full, autoSync, getSync };
+// Debounced background sync — called after every local change so the user never
+// has to press "sync". Coalesces bursts of edits into one background sync.
+let autoTimer = null;
+function scheduleAutoSync(delayMs) {
+  const s = getSync();
+  if (!s.enabled || !s.token) return;
+  if (autoTimer) clearTimeout(autoTimer);
+  autoTimer = setTimeout(function () { autoTimer = null; autoSync().catch(function () {}); }, delayMs || 2500);
+}
+
+module.exports = { saveAndLogin, test, pull, push, full, autoSync, scheduleAutoSync, getSync };
