@@ -1,0 +1,52 @@
+/* HesabYar desktop — fonts (IRANSansX FaNum + Gramophone) and brand overrides */
+
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Thin.ttf') format('truetype'); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-UltraLight.ttf') format('truetype'); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Light.ttf') format('truetype'); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-DemiBold.ttf') format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-ExtraBold.ttf') format('truetype'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'IRANSansXFaNum'; src: url('/assets/fonts/IRANSansXFaNum-Black.ttf') format('truetype'); font-weight: 900; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Gramophone'; src: url('/assets/fonts/GramophoneFaNum-Clean.ttf') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
+
+html, body { margin: 0; padding: 0; background: #eef2f9; }
+/* Global font: covers native selects/options, the Jalali date-picker popup and the
+   step wizard overlays (which are appended to <body>, outside .hpa-app). The brand
+   wordmark keeps Gramophone thanks to higher selector specificity below. */
+*, input, select, option, textarea, button, optgroup {
+  font-family: 'IRANSansXFaNum', 'Segoe UI', Tahoma, sans-serif !important;
+}
+
+/* Brand block in the top bar */
+.hpa-brand { display: flex; align-items: center; gap: 10px; }
+.hpa-brand-logo { display: inline-flex; }
+.hpa-brand-logo img { width: 40px; height: 40px; display: block; }
+.hpa-brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.hpa-brand-text strong { font-family: 'Gramophone', 'IRANSansXFaNum', sans-serif !important; font-size: 22px; letter-spacing: .3px; }
+.hpa-brand-text span { font-size: 12px; opacity: .8; }
+
+.hpa-auth-logo img { display: block; margin: 0 auto; }
+
+/* Settings extras */
+.hpa-settings-subhead { margin: 18px 0 6px; font-size: 15px; }
+.hpa-sync-status { font-weight: 700; font-size: 13px; padding: 4px 10px; border-radius: 999px; }
+.hpa-sync-status.is-on { color: #047857; background: #d1fae5; }
+.hpa-sync-status.is-off { color: #6b7280; background: #e5e7eb; }
+.hpa-sync-actions { flex-wrap: wrap; gap: 8px; }
+.hpa-sync-result { margin-top: 10px; padding: 10px 12px; background: #f1f5f9; border-radius: 12px; }
+.hpa-about-card { text-align: center; }
+
+/* keep app from feeling cramped in a desktop window */
+.hpa-main { max-width: 1180px; margin: 0 auto; }
+
+/* #6 — the tab title/summary must span full width (and stay centered) at every
+   window size. .hpa-main is a CSS grid; force its items to stretch so the
+   identity box doesn't shrink to content and drift right in narrow/mobile mode. */
+.hpa-main { justify-items: stretch !important; }
+.hpa-main > * { justify-self: stretch !important; }
+.hpa-tab-identity, .hpa-tab-sticky-summary { width: auto !important; box-sizing: border-box; }
+@media (max-width: 860px) {
+  .hpa-tab-identity { margin-left: 0 !important; margin-right: 0 !important; }
+}

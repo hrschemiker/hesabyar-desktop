@@ -1,0 +1,55 @@
+{
+  "name": "hesabyar-desktop",
+  "productName": "HesabYar",
+  "version": "1.1.0",
+  "description": "HesabYar — a full-featured Persian personal accounting desktop app (Windows). Offline-first, Jalali calendar, multi-currency, assets, debts, loans, cheques and reports. Syncs with the companion WordPress plugin.",
+  "author": "hrschemiker",
+  "license": "MIT",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "sql.js": "1.10.3"
+  },
+  "devDependencies": {
+    "electron": "31.7.6",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "app.hesabyar.desktop",
+    "productName": "HesabYar",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "directories": { "output": "release", "buildResources": "build" },
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "node_modules/sql.js/dist/sql-wasm.wasm",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      { "from": "node_modules/sql.js/dist/sql-wasm.wasm", "to": "sql-wasm.wasm" }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HesabYar"
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    }
+  }
+}

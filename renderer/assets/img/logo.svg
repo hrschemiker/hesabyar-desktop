@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="page"><path d="M96 44h214l70 70v292a14 14 0 0 1-14 14H96a14 14 0 0 1-14-14V58a14 14 0 0 1 14-14z"/></clipPath>
+  </defs>
+  <!-- folded page corner shadow -->
+  <path d="M310 44l70 70h-56a14 14 0 0 1-14-14z" fill="#c7d0e0"/>
+  <!-- report page -->
+  <g>
+    <path d="M96 44h214l70 70v292a14 14 0 0 1-14 14H96a14 14 0 0 1-14-14V58a14 14 0 0 1 14-14z" fill="#eef3fa" stroke="#2b3a67" stroke-width="14" stroke-linejoin="round"/>
+    <path d="M310 44l70 70h-70z" fill="#d6deea" stroke="#2b3a67" stroke-width="14" stroke-linejoin="round"/>
+  </g>
+  <g clip-path="url(#page)">
+    <!-- dollar coin -->
+    <circle cx="168" cy="128" r="52" fill="#ffd23f" stroke="#2b3a67" stroke-width="12"/>
+    <text x="168" y="150" font-family="Arial, sans-serif" font-size="66" font-weight="900" fill="#2b3a67" text-anchor="middle">$</text>
+    <!-- header lines -->
+    <rect x="96" y="206" width="120" height="14" rx="7" fill="#2b3a67"/>
+    <rect x="96" y="234" width="86" height="14" rx="7" fill="#2b3a67"/>
+    <!-- bar chart -->
+    <rect x="104" y="360" width="34" height="52" rx="6" fill="#e8564a"/>
+    <rect x="150" y="320" width="34" height="92" rx="6" fill="#f0736a"/>
+    <rect x="196" y="344" width="34" height="68" rx="6" fill="#e8564a"/>
+    <rect x="242" y="292" width="34" height="120" rx="6" fill="#f0736a"/>
+  </g>
+  <!-- calculator -->
+  <g>
+    <rect x="286" y="248" width="176" height="216" rx="22" fill="#3b4a8c" stroke="#2b3a67" stroke-width="14"/>
+    <rect x="312" y="272" width="124" height="46" rx="10" fill="#cfd8ec" stroke="#2b3a67" stroke-width="8"/>
+    <circle cx="416" cy="295" r="9" fill="#2b3a67"/>
+    <!-- buttons -->
+    <rect x="312" y="336" width="30" height="26" rx="7" fill="#f2994a"/>
+    <rect x="356" y="336" width="30" height="26" rx="7" fill="#eef3fa"/>
+    <rect x="400" y="336" width="30" height="26" rx="7" fill="#eef3fa"/>
+    <rect x="312" y="374" width="30" height="26" rx="7" fill="#eef3fa"/>
+    <rect x="356" y="374" width="30" height="26" rx="7" fill="#eef3fa"/>
+    <rect x="400" y="374" width="30" height="60" rx="7" fill="#ffd23f"/>
+    <rect x="312" y="412" width="30" height="26" rx="7" fill="#eef3fa"/>
+    <rect x="356" y="412" width="30" height="26" rx="7" fill="#eef3fa"/>
+  </g>
+</svg>

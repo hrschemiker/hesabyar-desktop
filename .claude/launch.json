@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "hesabyar-dev", "runtimeExecutable": "node", "runtimeArgs": ["tools/devserver.js"], "port": 4599 }
+  ]
+}
