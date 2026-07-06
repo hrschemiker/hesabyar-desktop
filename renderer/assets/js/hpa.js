@@ -52,6 +52,8 @@
   function norm(v){v=faToEn(v).replace(/[^0-9]/g,'');return v.length===8?v.slice(0,4)+'/'+v.slice(4,6)+'/'+v.slice(6,8):'';}
   function parts(v){v=norm(v)||faToEn(v);var m=String(v).match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);return m?[parseInt(m[1]),parseInt(m[2]),parseInt(m[3])]:null;}
   function ml(y,m){return m<=6?31:(m<=11?30:29);}
+  function j2g(jy,jm,jd){ jy=+jy;jm=+jm;jd=+jd; jy+=1595; var days=-355668+(365*jy)+Math.floor(jy/33)*8+Math.floor((jy%33+3)/4)+jd+((jm<7)?((jm-1)*31):(((jm-7)*30)+186)); var gy=400*Math.floor(days/146097); days%=146097; if(days>36524){gy+=100*Math.floor((--days)/36524);days%=36524;if(days>=365)days++;} gy+=4*Math.floor(days/1461); days%=1461; if(days>365){gy+=Math.floor((days-1)/365);days=(days-1)%365;} var gd=days+1; var s=[0,31,((gy%4==0&&gy%100!=0)||(gy%400==0))?29:28,31,30,31,30,31,31,30,31,30,31]; var gm; for(gm=1;gm<=12&&gd>s[gm];gm++)gd-=s[gm]; return [gy,gm,gd]; }
+  function firstDow(jy,jm){ var g=j2g(jy,jm,1); return (new Date(g[0],g[1]-1,g[2]).getDay()+1)%7; }
   function pad(n){return String(n).padStart(2,'0');}
   function val(y,m,d){return y+'/'+pad(m)+'/'+pad(d);}
   function todayParts(){var first=document.querySelector('.hpa-jdate[value]');return parts(first&&first.value)||[1404,1,1];}
@@ -59,6 +61,7 @@
     if(!box||!activeInput)return; var picked=parts(activeInput.value); var title=enToFa(jy+'/'+pad(jm));
     var html='<div class="hpa-jdp-head"><button type="button" data-dir="next">‹</button><div class="hpa-jdp-title">'+title+'</div><button type="button" data-dir="prev">›</button></div>';
     html+='<div class="hpa-jdp-grid"><span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>';
+    var _off=firstDow(jy,jm); for(var _i=0;_i<_off;_i++){ html+='<span class="hpa-jdp-pad"></span>'; }
     for(var d=1;d<=ml(jy,jm);d++){var cls=(picked&&picked[0]===jy&&picked[1]===jm&&picked[2]===d)?' class="is-picked"':'';html+='<button type="button" data-day="'+d+'"'+cls+'>'+enToFa(d)+'</button>';}
     html+='</div><div class="hpa-jdp-foot"><button type="button" data-today="1">امروز</button><button type="button" data-close="1">بستن</button></div>';
     box.innerHTML=html;
@@ -126,7 +129,10 @@
       if(wanted==='none') cat.value='0'; else if(cat.selectedOptions.length && cat.selectedOptions[0].disabled) cat.value='0';
     }
     var loanCheck=form.querySelector('input[name="hpa_is_loan_related"]');
-    var showLoan=loanCheck && loanCheck.checked;
+    // a loan-installment payment REQUIRES picking the installment, so always reveal the
+    // loan fields for that type (and tick the checkbox) — not only when the box is ticked.
+    if(loanCheck && t==='loan_installment' && !loanCheck.checked) loanCheck.checked=true;
+    var showLoan=(loanCheck && loanCheck.checked) || t==='loan_installment';
     form.querySelectorAll('.hpa-loan-related-field').forEach(function(el){el.style.display=showLoan?'grid':'none';});
   }
   function updateRecurringDueOptions(form){
@@ -441,11 +447,16 @@
   function val(y,m,d){return y+'/'+pad(m)+'/'+pad(d)}
   function parts(v){v=faToEn(v).replace(/[^0-9\/]/g,'');var m=String(v).match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);return m?[parseInt(m[1]),parseInt(m[2]),parseInt(m[3])]:null;}
   function ml(y,m){return m<=6?31:(m<=11?30:29)}
+  // Jalali -> Gregorian, then the weekday (Persian week: Saturday=0) of the 1st, so
+  // the calendar grid offsets day 1 to its real column instead of always Saturday.
+  function jdpJ2G(jy,jm,jd){ jy=+jy;jm=+jm;jd=+jd; jy+=1595; var days=-355668+(365*jy)+Math.floor(jy/33)*8+Math.floor((jy%33+3)/4)+jd+((jm<7)?((jm-1)*31):(((jm-7)*30)+186)); var gy=400*Math.floor(days/146097); days%=146097; if(days>36524){gy+=100*Math.floor((--days)/36524);days%=36524;if(days>=365)days++;} gy+=4*Math.floor(days/1461); days%=1461; if(days>365){gy+=Math.floor((days-1)/365);days=(days-1)%365;} var gd=days+1; var s=[0,31,((gy%4==0&&gy%100!=0)||(gy%400==0))?29:28,31,30,31,30,31,31,30,31,30,31]; var gm; for(gm=1;gm<=12&&gd>s[gm];gm++)gd-=s[gm]; return [gy,gm,gd]; }
+  function jdpFirstDow(jy,jm){ var g=jdpJ2G(jy,jm,1); return (new Date(g[0],g[1]-1,g[2]).getDay()+1)%7; }
   function setActive(inp){active=inp; var p=parts(inp.value)||[1404,1,1]; jy=p[0]; jm=p[1];}
   function renderBox(box){
     if(!box) return; var picked=active?parts(active.value):null;
     var html='<div class="hpa-jdp-head"><button type="button" data-dir="next">‹</button><div class="hpa-jdp-title">'+enToFa(jy+'/'+pad(jm))+'</div><button type="button" data-dir="prev">›</button></div>';
     html+='<div class="hpa-jdp-grid"><span>ش</span><span>ی</span><span>د</span><span>س</span><span>چ</span><span>پ</span><span>ج</span>';
+    var _off=jdpFirstDow(jy,jm); for(var _i=0;_i<_off;_i++){ html+='<span class="hpa-jdp-pad"></span>'; }
     for(var d=1; d<=ml(jy,jm); d++){var cls=(picked&&picked[0]===jy&&picked[1]===jm&&picked[2]===d)?' class="is-picked"':''; html+='<button type="button" data-day="'+d+'"'+cls+'>'+enToFa(d)+'</button>';}
     html+='</div><div class="hpa-jdp-foot"><button type="button" data-today="1">امروز</button><button type="button" data-close="1">بستن</button></div>';
     box.innerHTML=html;
@@ -875,4 +886,18 @@
     initJournalMore();
   }
   document.addEventListener('DOMContentLoaded',function(){ initAll(document); });
+})();
+
+
+/* account icon / bank-logo picker */
+(function(){
+  document.addEventListener('click', function(e){
+    var opt = e.target.closest ? e.target.closest('.hpa-icon-opt') : null;
+    if(!opt) return;
+    e.preventDefault();
+    var picker = opt.closest('.hpa-icon-picker'); if(!picker) return;
+    var hidden = picker.querySelector('input[name="icon"]'); if(hidden) hidden.value = opt.getAttribute('data-icon')||'';
+    picker.querySelectorAll('.hpa-icon-opt.is-selected').forEach(function(el){ el.classList.remove('is-selected'); });
+    opt.classList.add('is-selected');
+  });
 })();

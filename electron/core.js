@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };
@@ -31,6 +31,13 @@ function actionUrl(action, params) {
 // ---------- Static data maps (mirror plugin) ----------
 function currencies() { return { toman: 'تومان', rial: 'ریال', usd: 'دلار', eur: 'یورو', aed: 'درهم', try: 'لیر' }; }
 function account_types() { return { cash: 'نقدی', bank: 'بانکی', credit: 'اعتباری' }; }
+function bank_list() { return [['bmi','بانک ملی ایران'],['mellat','بانک ملت'],['tejarat','بانک تجارت'],['bsi','بانک صادرات'],['sepah','بانک سپه'],['bki','بانک کشاورزی'],['maskan','بانک مسکن'],['parsian','بانک پارسیان'],['bpi','بانک پاسارگاد'],['en','بانک اقتصاد نوین'],['sb','بانک سامان'],['sina','بانک سینا'],['shahr','بانک شهر'],['day','بانک دی'],['kar','بانک کارآفرین'],['rb','بانک رفاه کارگران'],['post','پست بانک'],['sarmayeh','بانک سرمایه'],['ansar','بانک انصار'],['tourism','بانک گردشگری'],['edbi','بانک توسعه صادرات'],['bim','بانک صنعت و معدن'],['iz','بانک ایران‌زمین'],['hi','بانک حکمت ایرانیان'],['melal','مؤسسه اعتباری ملل'],['resalat','بانک رسالت'],['mehriran','بانک مهر ایران'],['tt','بانک توسعه تعاون'],['ivbb','بانک ایران‌ونزوئلا'],['me','بانک مهر اقتصاد'],['ghbi','بانک قوامین'],['ba','بانک آینده']]; }
+function account_glyphs() { return ['💳','💵','🏦','🐷','💼','🪙','📇','💰','🏠','🎓']; }
+function bank_name(code) { const b = bank_list().find(x => x[0] === code); return b ? b[1] : ''; }
+function account_icon_html(icon, cls) { icon = String(icon == null ? '💳' : icon); if (icon.indexOf('bank:') === 0) { const code = icon.slice(5).replace(/[^a-z0-9]/gi, ''); return '<img class="hpa-bank-logo ' + U.esc_attr(cls || '') + '" src="/assets/img/banks/' + U.esc_attr(code) + '.png" alt="' + U.esc_attr(bank_name(code)) + '">'; } return '<span class="hpa-acc-emoji ' + U.esc_attr(cls || '') + '">' + U.esc_html(icon) + '</span>'; }
+function account_icon_text(icon) { icon = String(icon == null ? '💳' : icon); return icon.indexOf('bank:') === 0 ? '🏦' : icon; }
+function account_type_label(a) { if (a && a.icon && String(a.icon).indexOf('bank:') === 0) { const n = bank_name(String(a.icon).slice(5)); if (n) return n; } const t = account_types(); return (a && t[a.type]) || 'حساب'; }
+function account_icon_picker(current) { current = String(current == null ? '💳' : current); let out = '<div class="hpa-icon-picker" data-current="' + U.esc_attr(current) + '"><input type="hidden" name="icon" value="' + U.esc_attr(current) + '">'; out += '<div class="hpa-icon-picker-glyphs">'; for (const g of account_glyphs()) out += '<button type="button" class="hpa-icon-opt hpa-icon-opt-glyph' + (current === g ? ' is-selected' : '') + '" data-icon="' + U.esc_attr(g) + '">' + U.esc_html(g) + '</button>'; out += '</div><div class="hpa-icon-picker-banks">'; for (const [code, nm] of bank_list()) { const val = 'bank:' + code; out += '<button type="button" class="hpa-icon-opt hpa-icon-opt-bank' + (current === val ? ' is-selected' : '') + '" data-icon="' + U.esc_attr(val) + '" title="' + U.esc_attr(nm) + '"><img src="/assets/img/banks/' + code + '.png" alt="' + U.esc_attr(nm) + '"><small>' + U.esc_html(nm.replace(/^بانک /, '').replace(/^مؤسسه اعتباری /, '')) + '</small></button>'; } out += '</div></div>'; return out; }
 function transaction_types() {
   return {
     income: 'درآمد', expense: 'هزینه', loan_installment: 'پرداخت قسط', recurring_debt: 'بدهی تکرارشونده',
@@ -167,7 +174,7 @@ function get_categories(type) {
 function account_select(name, selected) {
   name = name || 'account_id'; selected = Number(selected) || 0;
   let out = '<select name="' + U.esc_attr(name) + '"><option value="0">انتخاب حساب</option>';
-  for (const a of get_accounts()) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(selected, a.id) + '>' + U.esc_html((a.icon || '') + ' ' + a.name + ' — ' + person_label(a.person_key || 'hamidreza')) + '</option>';
+  for (const a of get_accounts()) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(selected, a.id) + '>' + U.esc_html(account_icon_text(a.icon) + ' ' + a.name + ' — ' + person_label(a.person_key || 'hamidreza')) + '</option>';
   return out + '</select>';
 }
 function category_select(name, type, selected) {
@@ -1035,7 +1042,7 @@ function view_dashboard() {
   out += recurring_due_reminders();
   out += '<section class="hpa-three hpa-dashboard-middle"><div class="hpa-card hpa-dashboard-expenses"><h3>ترکیب هزینه‌ها</h3>' + expense_chart(false, true, true) + '</div><div class="hpa-card hpa-dashboard-accounts"><h3>حساب‌ها</h3>';
   if (!dashboardAccounts.length) out += '<p class="hpa-muted">هنوز حسابی ثبت نشده است.</p>';
-  else for (const a of dashboardAccounts) { const c = a.color || '#eef2ff'; out += '<div class="hpa-list-row hpa-dashboard-account-row" style="background:' + U.esc_attr(c) + '"><span class="hpa-badge">' + U.esc_html(a.icon) + '</span><b>' + U.esc_html(a.name) + '</b><em>' + U.esc_html(fmt_money(balances[a.id] || 0, a.currency)) + '</em></div>'; }
+  else for (const a of dashboardAccounts) { const c = a.color || '#eef2ff'; out += '<div class="hpa-list-row hpa-dashboard-account-row" style="background:' + U.esc_attr(c) + '"><span class="hpa-badge">' + account_icon_html(a.icon) + '</span><b>' + U.esc_html(a.name) + '</b><em>' + U.esc_html(fmt_money(balances[a.id] || 0, a.currency)) + '</em></div>'; }
   out += '</div>' + dashboard_future_obligations_preview() + '</section>';
   out += '<section class="hpa-card hpa-recent-card-section"><div class="hpa-section-head"><div><h3>آخرین تراکنش‌ها</h3><p class="hpa-muted">سه تراکنش آخر با جزئیات جمع‌شونده</p></div></div>' + recent_transaction_cards(3) + '<div class="hpa-more-under"><a class="hpa-btn hpa-btn-ghost hpa-more-btn" href="' + U.esc_url(buildUrl({ hpa_tab: 'transactions' })) + '">نمایش بیشتر</a></div></section>';
   return out;
@@ -1108,7 +1115,7 @@ function view_accounts() {
   for (const k in types) out += '<option value="' + U.esc_attr(k) + '"' + U.selected(type, k) + '>' + U.esc_html(types[k]) + '</option>';
   out += '</select></label><label>واحد پول<select name="currency">';
   for (const k of ['toman', 'rial', 'usd', 'eur']) out += '<option value="' + U.esc_attr(k) + '"' + U.selected(currency, k) + '>' + U.esc_html(curr[k]) + '</option>';
-  out += '</select></label><label>موجودی اولیه<input name="opening_balance" inputmode="decimal" value="' + U.esc_attr(isEdit ? edit.opening_balance : '') + '"></label><label>نام بانک<input name="bank_name" value="' + U.esc_attr(isEdit ? (edit.bank_name || '') : '') + '"></label><label>شماره حساب<input name="account_number" value="' + U.esc_attr(isEdit ? (edit.account_number || '') : '') + '"></label><label>شماره کارت<input name="card_number" value="' + U.esc_attr(isEdit ? (edit.card_number || '') : '') + '"></label><label>شبا<input name="iban" value="' + U.esc_attr(isEdit ? (edit.iban || '') : '') + '"></label><label>آیکن/اموجی<input name="icon" value="' + U.esc_attr(isEdit ? (edit.icon || '💳') : '💳') + '"></label><label>رنگ<input type="color" name="color" value="' + U.esc_attr(isEdit ? (edit.color || '#ede9fe') : '#ede9fe') + '"></label><label>فعال باشد؟ <span class="hpa-checkline"><input type="checkbox" name="is_active" value="1"' + U.checked(isEdit ? Number(edit.is_active) : 1, 1) + '> بله</span></label><label class="hpa-col-full">توضیح<textarea name="note">' + U.esc_textarea(isEdit ? (edit.note || '') : '') + '</textarea></label></div>';
+  out += '</select></label><label>موجودی اولیه<input name="opening_balance" inputmode="decimal" value="' + U.esc_attr(isEdit ? edit.opening_balance : '') + '"></label><label>نام بانک<input name="bank_name" value="' + U.esc_attr(isEdit ? (edit.bank_name || '') : '') + '"></label><label>شماره حساب<input name="account_number" value="' + U.esc_attr(isEdit ? (edit.account_number || '') : '') + '"></label><label>شماره کارت<input name="card_number" value="' + U.esc_attr(isEdit ? (edit.card_number || '') : '') + '"></label><label>شبا<input name="iban" value="' + U.esc_attr(isEdit ? (edit.iban || '') : '') + '"></label><label class="hpa-col-full hpa-icon-picker-field">نماد حساب (لوگوی بانک یا اموجی)' + account_icon_picker(isEdit ? (edit.icon || '💳') : '💳') + '</label><label>رنگ<input type="color" name="color" value="' + U.esc_attr(isEdit ? (edit.color || '#ede9fe') : '#ede9fe') + '"></label><label>فعال باشد؟ <span class="hpa-checkline"><input type="checkbox" name="is_active" value="1"' + U.checked(isEdit ? Number(edit.is_active) : 1, 1) + '> بله</span></label><label class="hpa-col-full">توضیح<textarea name="note">' + U.esc_textarea(isEdit ? (edit.note || '') : '') + '</textarea></label></div>';
   out += form_close(isEdit ? 'ذخیره تغییرات حساب' : 'ثبت حساب');
   if (isEdit) out += '<a class="hpa-btn hpa-btn-ghost hpa-cancel-edit" href="' + U.esc_url(removeArgUrl('hpa_edit_account')) + '">انصراف از ویرایش</a>';
   out += '</details>';
@@ -1121,8 +1128,8 @@ function view_accounts() {
     const bal = Number(balances[r.id] !== undefined ? balances[r.id] : r.opening_balance) || 0;
     const bg = r.color || '#ede9fe';
     out += '<details class="hpa-account-card"><summary style="background:' + U.esc_attr(bg) + '">';
-    out += '<span class="hpa-account-card-icon">' + U.esc_html(r.icon || '💳') + '</span>';
-    out += '<div class="hpa-account-card-info"><strong>' + U.esc_html(r.name) + '</strong><small>' + U.esc_html(person_label(r.person_key || 'hamidreza')) + ' · ' + U.esc_html(types[r.type] || r.type) + '</small></div>';
+    out += '<span class="hpa-account-card-icon">' + account_icon_html(r.icon) + '</span>';
+    out += '<div class="hpa-account-card-info"><strong>' + U.esc_html(r.name) + '</strong><small>' + U.esc_html(account_type_label(r) + ' · ' + person_label(r.person_key || 'hamidreza')) + '</small></div>';
     out += '<span class="hpa-account-card-balance">' + U.esc_html(fmt_money(bal, r.currency)) + '</span></summary>';
     out += '<div class="hpa-account-card-body"><div class="hpa-account-card-details">';
     out += '<div><span>ارز</span><strong>' + U.esc_html(curr[r.currency] || r.currency) + '</strong></div>';
@@ -1166,7 +1173,7 @@ function accounts_accounting_reports() {
   out += '<div class="hpa-two hpa-account-reports-grid"><section class="hpa-card hpa-subcard"><h3>دفتر کل حساب‌ها</h3>';
   for (const a of accounts) {
     let bal = Number(a.opening_balance) || 0;
-    out += '<details class="hpa-ledger-card"><summary><b>' + U.esc_html((a.icon || '💳') + ' ' + a.name) + '</b><small>' + U.esc_html(a.is_active ? 'فعال' : 'بسته‌شده') + '</small></summary><div class="hpa-ledger-lines">';
+    out += '<details class="hpa-ledger-card"><summary><b>' + account_icon_html(a.icon, 'hpa-bank-logo-sm') + ' ' + U.esc_html(a.name) + '</b><small>' + U.esc_html(a.is_active ? 'فعال' : 'بسته‌شده') + '</small></summary><div class="hpa-ledger-lines">';
     const rows = D.all("SELECT * FROM hpa_transactions WHERE account_id=? AND status!='cancelled' ORDER BY gregorian_date ASC, id ASC LIMIT 120", [a.id]);
     if (!rows.length) out += '<p class="hpa-muted">گردشی ثبت نشده است.</p>';
     for (const r of rows) { bal = apply_transaction_to_balance(bal, a.currency, r); out += '<div class="hpa-list-row"><b>' + U.esc_html(r.jalali_date + ' · ' + (transaction_types()[r.type] || r.type)) + '</b><span>' + U.esc_html(fmt_money(r.amount, r.currency)) + '</span><em>مانده: ' + U.esc_html(fmt_money(bal, a.currency)) + '</em></div>'; }
@@ -1186,7 +1193,7 @@ function accounts_accounting_reports() {
     out += '</section></div><section class="hpa-card hpa-subcard"><h3>حساب‌های بسته‌شده</h3>';
     const closed = accounts.filter(a => !Number(a.is_active));
     if (!closed.length) out += '<p class="hpa-muted">حساب بسته‌شده‌ای وجود ندارد.</p>';
-    for (const a of closed) { const url = actionUrl('hpa_reopen_account', { id: a.id }); out += '<div class="hpa-list-row"><b>' + U.esc_html((a.icon || '💳') + ' ' + a.name) + '</b><span>' + U.esc_html(person_label(a.person_key)) + '</span><a class="hpa-btn hpa-btn-small hpa-btn-ghost" href="' + U.esc_url(url) + '">فعال‌سازی دوباره</a></div>'; }
+    for (const a of closed) { const url = actionUrl('hpa_reopen_account', { id: a.id }); out += '<div class="hpa-list-row"><b>' + account_icon_html(a.icon, 'hpa-bank-logo-sm') + ' ' + U.esc_html(a.name) + '</b><span>' + U.esc_html(person_label(a.person_key)) + '</span><a class="hpa-btn hpa-btn-small hpa-btn-ghost" href="' + U.esc_url(url) + '">فعال‌سازی دوباره</a></div>'; }
     out += '</section></section>';
   } else out += '</section></div></section>';
   return out;
@@ -1249,8 +1256,8 @@ function view_transactions() {
   out += '<div class="hpa-form-grid">';
   out += '<label class="hpa-person-normal-field">شخص' + person_select('person_key', eperson) + '</label>';
   out += '<label>نوع تراکنش<select name="type">'; for (const k in types) out += '<option value="' + U.esc_attr(k) + '"' + U.selected(etype, k) + '>' + U.esc_html(types[k]) + '</option>'; out += '</select></label>';
-  out += '<label>حساب مرتبط<select name="account_id">'; for (const a of accounts) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(eacc, a.id) + '>' + U.esc_html(a.icon + ' ' + a.name) + '</option>'; out += '</select></label>';
-  out += '<label class="hpa-transfer-account-field">حساب مقصد در انتقال<select name="to_account_id"><option value="0">ندارد</option>'; for (const a of accounts) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(eto, a.id) + '>' + U.esc_html(a.icon + ' ' + a.name) + '</option>'; out += '</select></label>';
+  out += '<label>حساب مرتبط<select name="account_id">'; for (const a of accounts) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(eacc, a.id) + '>' + U.esc_html(account_icon_text(a.icon) + ' ' + a.name) + '</option>'; out += '</select></label>';
+  out += '<label class="hpa-transfer-account-field">حساب مقصد در انتقال<select name="to_account_id"><option value="0">ندارد</option>'; for (const a of accounts) out += '<option value="' + U.esc_attr(a.id) + '"' + U.selected(eto, a.id) + '>' + U.esc_html(account_icon_text(a.icon) + ' ' + a.name) + '</option>'; out += '</select></label>';
   out += '<label class="hpa-person-transfer-field">مبدأ پول' + person_select('from_person_key', efrom) + '</label>';
   out += '<label class="hpa-person-transfer-field">مقصد پول' + person_select('to_person_key', etoPerson) + '</label>';
   out += '<label class="hpa-category-field">موضوع<select name="category_id" class="hpa-category-by-type"><option value="0" data-cat-type="all">بدون موضوع</option>'; for (const c of categories) out += '<option data-cat-type="' + U.esc_attr(c.type) + '" value="' + U.esc_attr(c.id) + '"' + U.selected(ecat, c.id) + '>' + U.esc_html(c.icon + ' ' + c.name) + '</option>'; out += '</select></label>';
@@ -1846,7 +1853,7 @@ function view_reports() {
   out += '<section class="hpa-two"><div class="hpa-card"><h2>گزارش حساب‌ها</h2>';
   const accounts = get_accounts();
   if (!accounts.length) out += '<p class="hpa-muted">حسابی ثبت نشده است.</p>';
-  for (const a of accounts) out += '<div class="hpa-list-row"><span class="hpa-badge" style="background:' + U.esc_attr(a.color) + '">' + U.esc_html(a.icon) + '</span><b>' + U.esc_html(a.name) + '<small class="hpa-inline-person">' + U.esc_html(person_label(a.person_key || 'hamidreza')) + '</small></b><em>' + U.esc_html(fmt_money(balances[a.id] || 0, a.currency)) + '</em></div>';
+  for (const a of accounts) out += '<div class="hpa-list-row"><span class="hpa-badge" style="background:' + U.esc_attr(a.color) + '">' + account_icon_html(a.icon) + '</span><b>' + U.esc_html(a.name) + '<small class="hpa-inline-person">' + U.esc_html(account_type_label(a) + ' · ' + person_label(a.person_key || 'hamidreza')) + '</small></b><em>' + U.esc_html(fmt_money(balances[a.id] || 0, a.currency)) + '</em></div>';
   out += '</div><div class="hpa-card"><h2>گزارش بر اساس شخص</h2>';
   const p = persons();
   for (const key in p) {
