@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };
@@ -75,6 +75,22 @@ function fmt_money(amount, currency) {
   const curr = currencies();
   const precision = ['usd', 'eur', 'aed', 'try'].indexOf(currency) > -1 ? 2 : 0;
   return U.number_format_i18n(Number(amount) || 0, precision) + ' ' + (curr[currency] || U.esc_html(currency));
+}
+// number display: keep the millions digits full‑size, shrink the rest + the currency word.
+// Splits on the actual thousands separator (Persian ٬ / Arabic ، / comma).
+function fmt_money_html(amount, currency) {
+  const full = fmt_money(amount, currency);
+  const sp = full.lastIndexOf(' ');
+  const numPart = sp >= 0 ? full.slice(0, sp) : full;
+  const cur = sp >= 0 ? full.slice(sp + 1) : '';
+  const bare = numPart.replace(/[-−‎‏]/g, '');
+  const groups = bare.split(/[,٬،]/);
+  const sep = (bare.match(/[,٬،]/) || [','])[0];
+  const neg = (Number(amount) || 0) < 0 ? '−' : '';
+  let lead, rest;
+  if (groups.length >= 3) { lead = neg + groups.slice(0, groups.length - 2).join(sep); rest = sep + groups.slice(groups.length - 2).join(sep); }
+  else { lead = neg + bare; rest = ''; }
+  return '<span class="hy-lead">' + U.esc_html(lead) + '</span>' + (rest ? '<span class="hy-rest">' + U.esc_html(rest) + '</span>' : '') + (cur ? '<span class="hy-cur">' + U.esc_html(cur) + '</span>' : '');
 }
 function latest_rate_price(rate_key) {
   rate_key = U.sanitize_key(String(rate_key || ''));
@@ -968,11 +984,11 @@ function tab_header(active) {
   const d = data[active];
   return '<section class="hpa-tab-identity"><span>' + U.esc_html(d[2]) + '</span><div><h1>' + U.esc_html(d[0]) + '</h1><p>' + U.esc_html(d[1]) + '</p></div></section>';
 }
-function kpi(title, value, icon, extraClass) { return '<article class="hpa-kpi ' + U.esc_attr(extraClass || '') + '"><span>' + icon + '</span><small>' + U.esc_html(title) + '</small><strong>' + U.esc_html(value) + '</strong></article>'; }
+function kpi(title, value, icon, extraClass) { return '<article class="hpa-kpi ' + U.esc_attr(extraClass || '') + '"><span>' + icon + '</span><small>' + U.esc_html(title) + '</small><strong>' + value + '</strong></article>'; }
 function kpi_asset_current(value, profit, icon) {
   const cls = profit >= 0 ? 'hpa-profit-positive' : 'hpa-profit-negative';
   const label = (profit >= 0 ? 'سود: ' : 'زیان: ') + fmt_money(Math.abs(profit), 'toman');
-  return '<article class="hpa-kpi hpa-kpi-asset-current"><span>' + icon + '</span><small>ارزش فعلی دارایی‌ها</small><strong>' + U.esc_html(value) + '</strong><em class="' + U.esc_attr(cls) + '">' + U.esc_html(label) + '</em></article>';
+  return '<article class="hpa-kpi hpa-kpi-asset-current"><span>' + icon + '</span><small>ارزش فعلی دارایی‌ها</small><strong>' + value + '</strong><em class="' + U.esc_attr(cls) + '">' + U.esc_html(label) + '</em></article>';
 }
 function transaction_flow_class(r) {
   const type = r.type || '';
@@ -1005,14 +1021,14 @@ function view_dashboard() {
   const gold18Rate = latest_rate_price('gold18');
   const heroClass = monthlyNet >= 0 ? 'hpa-hero-positive' : 'hpa-hero-negative';
   const heroLabel = monthlyNet >= 0 ? 'مازاد ماه جاری' : 'کسری ماه جاری';
-  let out = '<section class="hpa-hero-finance hpa-hero-finance-fixed ' + U.esc_attr(heroClass) + '"><div class="hpa-hero-copy"><span class="hpa-eyebrow">خلاصه مالی ماه جاری</span><h1>' + U.esc_html(heroLabel) + ': ' + U.esc_html(fmt_money(Math.abs(monthlyNet), 'toman')) + '</h1></div><div class="hpa-hero-metrics hpa-hero-market-metrics"><div><small>دلار</small><b>' + U.esc_html(usdRate ? fmt_money(usdRate, 'toman') : 'ثبت نشده') + '</b></div><div><small>طلای ۱۸ عیار</small><b>' + U.esc_html(gold18Rate ? fmt_money(gold18Rate, 'toman') : 'ثبت نشده') + '</b></div></div></section>';
+  let out = '<section class="hpa-hero-finance hpa-hero-finance-fixed ' + U.esc_attr(heroClass) + '"><div class="hpa-hero-copy"><span class="hpa-eyebrow">خلاصه مالی ماه جاری</span><h1>' + U.esc_html(heroLabel) + ': <span class="hpa-hero-amount">' + fmt_money_html(Math.abs(monthlyNet), 'toman') + '</span></h1></div><div class="hpa-hero-metrics hpa-hero-market-metrics"><div><small>دلار</small><b>' + U.esc_html(usdRate ? fmt_money(usdRate, 'toman') : 'ثبت نشده') + '</b></div><div><small>طلای ۱۸ عیار</small><b>' + U.esc_html(gold18Rate ? fmt_money(gold18Rate, 'toman') : 'ثبت نشده') + '</b></div></div></section>';
   out += '<section class="hpa-grid hpa-kpis">';
-  out += kpi('موجودی حساب‌ها', fmt_money(total_balances_toman(balances), 'toman'), '💶');
-  out += kpi_asset_current(fmt_money(assetsTotal, 'toman'), assetProfit, assetIcon);
-  out += kpi('طلب‌های باز', fmt_money(recvTotal, 'toman'), '🤝', 'hpa-mobile-hide');
-  out += kpi('بدهی‌های باز', fmt_money(debtsTotal, 'toman'), '⚠️', 'hpa-mobile-hide');
-  out += kpi('درآمد ماه', fmt_money(income, 'toman'), '📈');
-  out += kpi('هزینه ماه', fmt_money(expense, 'toman'), '📉');
+  out += kpi('موجودی حساب‌ها', fmt_money_html(total_balances_toman(balances), 'toman'), '💶');
+  out += kpi_asset_current(fmt_money_html(assetsTotal, 'toman'), assetProfit, assetIcon);
+  out += kpi('طلب‌های باز', fmt_money_html(recvTotal, 'toman'), '🤝', 'hpa-mobile-hide');
+  out += kpi('بدهی‌های باز', fmt_money_html(debtsTotal, 'toman'), '⚠️', 'hpa-mobile-hide');
+  out += kpi('درآمد ماه', fmt_money_html(income, 'toman'), '📈');
+  out += kpi('هزینه ماه', fmt_money_html(expense, 'toman'), '📉');
   out += '</section>';
   out += loan_due_reminders();
   out += check_due_reminders();
@@ -1812,12 +1828,12 @@ function view_reports() {
   const debtsTotal = table_sum_toman('debts', 'amount', "status!='paid'") + loan_remaining_total_toman() + check_open_total_toman();
   const recvTotal = table_sum_toman('receivables', 'amount', "status!='paid'");
   out += '<section class="hpa-grid hpa-kpis hpa-report-kpis">';
-  out += kpi('کل درآمد ثبت‌شده', fmt_money(income, 'toman'), '📈');
-  out += kpi('کل هزینه ثبت‌شده', fmt_money(expense, 'toman'), '📉');
-  out += kpi('ارزش فعلی دارایی‌ها', fmt_money(assetSummary.current, 'toman'), assetSummary.profit >= 0 ? '<span class="hpa-trend-icon hpa-trend-up">↗</span>' : '<span class="hpa-trend-icon hpa-trend-down">↘</span>');
-  out += kpi('طلب باز', fmt_money(recvTotal, 'toman'), '🤝');
-  out += kpi('بدهی باز', fmt_money(debtsTotal, 'toman'), '⚠️');
-  out += kpi('مانده حساب‌ها', fmt_money(total_balances_toman(balances), 'toman'), '💳');
+  out += kpi('کل درآمد ثبت‌شده', fmt_money_html(income, 'toman'), '📈');
+  out += kpi('کل هزینه ثبت‌شده', fmt_money_html(expense, 'toman'), '📉');
+  out += kpi('ارزش فعلی دارایی‌ها', fmt_money_html(assetSummary.current, 'toman'), assetSummary.profit >= 0 ? '<span class="hpa-trend-icon hpa-trend-up">↗</span>' : '<span class="hpa-trend-icon hpa-trend-down">↘</span>');
+  out += kpi('طلب باز', fmt_money_html(recvTotal, 'toman'), '🤝');
+  out += kpi('بدهی باز', fmt_money_html(debtsTotal, 'toman'), '⚠️');
+  out += kpi('مانده حساب‌ها', fmt_money_html(total_balances_toman(balances), 'toman'), '💳');
   out += '</section>';
   out += report_month_comparison();
   out += report_accounting_health_ratios();
