@@ -122,6 +122,9 @@
     form.querySelectorAll('.hpa-check-settlement-field').forEach(function(el){el.style.display=(t==='check_settlement')?'grid':'none';});
     form.querySelectorAll('.hpa-asset-link-field').forEach(function(el){el.style.display=(t==='asset_buy'||t==='asset_sell')?'grid':'none';});
     form.querySelectorAll('.hpa-recurring-debt-field').forEach(function(el){el.style.display=(t==='recurring_debt')?'grid':'none';});
+    // Purchase items only make sense for a real purchase: an expense or an asset buy.
+    var hasItems=['expense','asset_buy'].indexOf(t)>-1;
+    form.querySelectorAll('.hpa-items-field').forEach(function(el){el.style.display=hasItems?'grid':'none';});
     var cat=form.querySelector('select[name="category_id"].hpa-category-by-type');
     if(cat){
       var wanted=incomeLike(t)?'income':(expenseLike(t)?'expense':'none');

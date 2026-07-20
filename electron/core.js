@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };

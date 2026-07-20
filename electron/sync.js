@@ -77,17 +77,33 @@ function localTables() {
 function mergeIncoming(tables) {
   if (!tables) return 0;
   let count = 0;
+  // Build the set of tombstones ({table_key -> Set(original_id)}) from BOTH the incoming
+  // deleted_items and the local ones, so a row deleted on either side is neither
+  // resurrected during upsert nor kept afterwards.
+  const tomb = {};
+  const addTomb = (rows) => { if (!Array.isArray(rows)) return; for (const r of rows) { if (r && r.table_key && r.original_id) { (tomb[r.table_key] = tomb[r.table_key] || new Set()).add(String(r.original_id)); } } };
+  addTomb(tables.deleted_items);
+  const delTable = D.TABLES.deleted_items;
+  if (delTable) addTomb(D.all('SELECT table_key, original_id FROM ' + delTable));
   for (const key of SYNC_TABLES) {
     const rows = tables[key]; const table = D.TABLES[key];
     if (!Array.isArray(rows) || !table) continue;
+    const tset = tomb[key];
     for (const row of rows) {
       if (!row || typeof row !== 'object') continue;
       const clean = {};
       for (const c in row) { const v = row[c]; clean[c] = (v && typeof v === 'object') ? JSON.stringify(v) : v; }
+      // don't resurrect a row that was deleted on either side
+      if (key !== 'deleted_items' && clean.id && tset && tset.has(String(clean.id))) continue;
       if (clean.id) { const exists = Number(D.scalar('SELECT id FROM ' + table + ' WHERE id=?', [clean.id])) || 0; if (exists) D.update(table, clean, { id: clean.id }); else D.insert(table, clean); }
       else { delete clean.id; D.insert(table, clean); }
       count++;
     }
+  }
+  // Propagate deletions: for every tombstone (merged from both sides), remove the real row.
+  for (const key in tomb) {
+    const table = D.TABLES[key]; if (!table || key === 'deleted_items') continue;
+    for (const oid of tomb[key]) { const n = Number(oid) || 0; if (n) { try { D.del(table, { id: n }); } catch (e) {} } }
   }
   return count;
 }
