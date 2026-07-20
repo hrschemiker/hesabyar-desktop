@@ -1,7 +1,7 @@
 {
   "name": "hesabyar-desktop",
   "productName": "HesabYar",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "HesabYar — a full-featured Persian personal accounting desktop app (Windows). Offline-first, Jalali calendar, multi-currency, assets, debts, loans, cheques and reports. Syncs with the companion WordPress plugin.",
   "author": "hrschemiker",
   "license": "MIT",

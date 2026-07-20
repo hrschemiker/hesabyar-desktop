@@ -5,7 +5,7 @@ const U = require('./util');
 
 const APP_NAME = 'حساب‌یار';
 const APP_SUBTITLE = 'نرم‌افزار حسابداری شخصی';
-const VERSION = '1.6.0';
+const VERSION = '1.6.1';
 
 // Per-request context (set by server before each render/action)
 let CTX = { query: {}, token: '' };
@@ -714,6 +714,9 @@ function save_transaction(post, files) {
     recurring_due_gregorian_date: (type === 'recurring_debt') ? recurringDueGregorian : null,
     status: P(post, 'status', 'done'), hide_amount: PB(post, 'hide_amount') ? 1 : 0, updated_at: U.now_mysql()
   };
+  // A loan-installment payment implies its loan — derive source_loan_id from the chosen
+  // installment so the loan link is stored even though the «وام مرتبط» field is hidden.
+  if (data.loan_installment_id && !data.source_loan_id) { const _li = get_installment(Number(data.loan_installment_id)); if (_li) data.source_loan_id = Number(_li.loan_id) || 0; }
   if (receipt) data.receipt_id = receipt;
   if (!id) {
     const dup = Number(D.scalar("SELECT id FROM hpa_transactions WHERE status!='cancelled' AND account_id=? AND type=? AND amount=? AND currency=? AND jalali_date=? AND COALESCE(description,'')=? LIMIT 1",

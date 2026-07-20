@@ -132,8 +132,13 @@
     // a loan-installment payment REQUIRES picking the installment, so always reveal the
     // loan fields for that type (and tick the checkbox) — not only when the box is ticked.
     if(loanCheck && t==='loan_installment' && !loanCheck.checked) loanCheck.checked=true;
-    var showLoan=(loanCheck && loanCheck.checked) || t==='loan_installment';
-    form.querySelectorAll('.hpa-loan-related-field').forEach(function(el){el.style.display=showLoan?'grid':'none';});
+    // For «پرداخت قسط», let the granular handler show ONLY «قسط مرتبط» and hide the
+    // redundant «وام مرتبط» (the installment already implies its loan). Not touching the
+    // broad .hpa-loan-related-field here avoids re-showing the loan field.
+    if(t!=='loan_installment'){
+      var showLoan=loanCheck && loanCheck.checked;
+      form.querySelectorAll('.hpa-loan-related-field').forEach(function(el){el.style.display=showLoan?'grid':'none';});
+    }
   }
   function updateRecurringDueOptions(form){
     if(!form) return;
