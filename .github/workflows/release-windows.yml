@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Build installer and portable edition
-        run: npm run dist
+        run: npm run dist -- --publish never
 
       - name: Upload files to the existing release
         env:
