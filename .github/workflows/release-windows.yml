@@ -1,0 +1,41 @@
+name: Build Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag
+        required: true
+        default: v1.6.4
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build installer and portable edition
+        run: npm run dist
+
+      - name: Upload files to the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release upload "${{ inputs.tag }}" `
+            "release/HesabYar-Setup-1.6.4.exe#Windows Installer" `
+            "release/HesabYar-Portable-1.6.4.exe#Portable Edition" `
+            --clobber
