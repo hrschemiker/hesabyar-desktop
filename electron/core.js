@@ -238,12 +238,17 @@ function calculate_balances() {
   _balancesCache = balances;
   return balances;
 }
-function apply_transaction_to_balance(balance, currency, tx) {
+function apply_transaction_to_balance(balance, currency, tx, accountId) {
   const sourceAmount = convert_currency(tx.amount || 0, tx.currency || currency, currency);
   const feeAmount = convert_currency(tx.fee_amount || 0, tx.currency || currency, currency);
   const type = tx.type || '';
+  accountId = Number(accountId || tx.account_id) || 0;
+  if (type === 'transfer') {
+    if (Number(tx.to_account_id) === accountId && Number(tx.account_id) !== accountId) return balance + sourceAmount;
+    if (Number(tx.account_id) === accountId) return balance - sourceAmount - feeAmount;
+    return balance;
+  }
   if (['income', 'asset_sell', 'receivable_settlement', 'debt_incur'].indexOf(type) > -1) return balance + sourceAmount;
-  if (type === 'transfer') return balance - sourceAmount - feeAmount;
   if (type === 'person_transfer') {
     const from = tx.from_person_key || (tx.person_key || 'hamidreza');
     const to = tx.to_person_key || 'samira';
@@ -258,8 +263,8 @@ function account_balance_after_transaction(tx) {
   const acc = D.get('SELECT * FROM hpa_accounts WHERE id=?', [tx.account_id]);
   if (!acc) return null;
   let balance = Number(acc.opening_balance) || 0;
-  const rows = D.all("SELECT * FROM hpa_transactions WHERE status!='cancelled' AND account_id=? AND (gregorian_date < ? OR (gregorian_date=? AND id<=?)) ORDER BY gregorian_date ASC, id ASC", [tx.account_id, tx.gregorian_date, tx.gregorian_date, tx.id]);
-  for (const r of rows) balance = apply_transaction_to_balance(balance, acc.currency, r);
+  const rows = D.all("SELECT * FROM hpa_transactions WHERE status!='cancelled' AND (account_id=? OR to_account_id=?) AND (gregorian_date < ? OR (gregorian_date=? AND id<=?)) ORDER BY gregorian_date ASC, id ASC", [tx.account_id, tx.account_id, tx.gregorian_date, tx.gregorian_date, tx.id]);
+  for (const r of rows) balance = apply_transaction_to_balance(balance, acc.currency, r, tx.account_id);
   return { account: acc.name, balance: balance, currency: acc.currency };
 }
 
@@ -1829,6 +1834,67 @@ function report_financing_summary() {
   out += '<div class="hpa-list-row"><b>جمع خروجی</b><em>' + U.esc_html(fmt_money(outTotal, 'toman')) + '</em></div></div></div></section>';
   return out;
 }
+function analytics_bar_chart(title, subtitle, rows, colors) {
+  rows = (rows || []).filter(r => Number(r.value) !== 0).slice(0, 8);
+  const max = Math.max(1, ...rows.map(r => Math.abs(Number(r.value) || 0)));
+  let body = '';
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i], value = Number(r.value) || 0, width = Math.max(3, Math.round(Math.abs(value) * 100 / max));
+    const color = r.color || (colors && colors[i % colors.length]) || '#4f46e5';
+    body += '<div class="hpa-analytics-row"><div><b>' + U.esc_html(r.label) + '</b><em>' + U.esc_html(fmt_money(value, 'toman')) + '</em></div><span><i style="width:' + width + '%;background:' + U.esc_attr(color) + '"></i></span></div>';
+  }
+  if (!body) body = '<p class="hpa-muted">برای این نمودار هنوز داده‌ای ثبت نشده است.</p>';
+  return '<article class="hpa-card hpa-analytics-chart"><header><h3>' + U.esc_html(title) + '</h3><p>' + U.esc_html(subtitle) + '</p></header>' + body + '</article>';
+}
+function sum_grouped_rows(rows, keyFn) {
+  const out = {};
+  for (const r of rows) { const key = keyFn(r); if (!out[key]) out[key] = 0; out[key] += amount_to_toman(r.amount || 0, r.currency || 'toman'); }
+  return Object.keys(out).map(k => ({ label: k, value: out[k] })).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+}
+function report_previous_jalali_month() {
+  const ranges = last_jalali_month_ranges(2); if (ranges.length < 2) return '';
+  const r = ranges[0], w = "gregorian_date BETWEEN '" + r.start + "' AND '" + r.end + "'";
+  const income = transaction_sum_toman('income', w), expense = transaction_sum_toman(expense_types(), w);
+  const cashIn = transaction_sum_toman(cash_in_types(), w), cashOut = transaction_sum_toman(cash_out_types(), w);
+  const txCount = Number(D.scalar("SELECT COUNT(*) FROM hpa_transactions WHERE status!='cancelled' AND gregorian_date BETWEEN ? AND ?", [r.start, r.end])) || 0;
+  const saving = income - expense;
+  return '<section class="hpa-card hpa-previous-month"><div class="hpa-section-head"><div><h2>گزارش ماه شمسی گذشته — ' + U.esc_html(r.label) + '</h2><p class="hpa-muted">ماه کامل بسته‌شده؛ مستقل از روزهای سپری‌شده ماه جاری</p></div></div><div class="hpa-grid hpa-kpis"><article class="hpa-kpi"><span>📈</span><small>درآمد واقعی</small><strong>' + fmt_money_html(income, 'toman') + '</strong></article><article class="hpa-kpi"><span>📉</span><small>هزینه واقعی</small><strong>' + fmt_money_html(expense, 'toman') + '</strong></article><article class="hpa-kpi"><span>💾</span><small>پس‌انداز خالص</small><strong class="' + (saving >= 0 ? 'hpa-positive' : 'hpa-negative') + '">' + U.esc_html((saving >= 0 ? '+' : '-') + fmt_money(Math.abs(saving), 'toman')) + '</strong></article><article class="hpa-kpi"><span>💵</span><small>کل ورود نقد</small><strong>' + fmt_money_html(cashIn, 'toman') + '</strong></article><article class="hpa-kpi"><span>💸</span><small>کل خروج نقد</small><strong>' + fmt_money_html(cashOut, 'toman') + '</strong></article><article class="hpa-kpi"><span>🧾</span><small>تعداد تراکنش</small><strong>' + U.esc_html(U.number_format_i18n(txCount)) + '</strong></article></div></section>';
+}
+function report_ten_accounting_charts() {
+  const range = current_jalali_month_gregorian_range(), w = [range[0], range[1]];
+  const palette = ['#4f46e5','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#64748b'];
+  const months = last_jalali_month_ranges(6);
+  const incomeTrend = months.map(m => ({ label: m.label, value: transaction_sum_toman('income', "gregorian_date BETWEEN '" + m.start + "' AND '" + m.end + "'"), color: '#10b981' }));
+  const expenseTrend = months.map(m => ({ label: m.label, value: transaction_sum_toman(expense_types(), "gregorian_date BETWEEN '" + m.start + "' AND '" + m.end + "'"), color: '#ef4444' }));
+  const catRows = D.all("SELECT COALESCE(c.name,'بدون موضوع') label,t.amount,t.currency FROM hpa_transactions t LEFT JOIN hpa_categories c ON c.id=t.category_id WHERE t.status!='cancelled' AND t.type IN ('expense','recurring_debt') AND t.gregorian_date BETWEEN ? AND ?", w);
+  const cats = sum_grouped_rows(catRows, r => r.label);
+  const dayRows = D.all("SELECT jalali_date label,amount,currency FROM hpa_transactions WHERE status!='cancelled' AND type IN ('expense','recurring_debt') AND gregorian_date BETWEEN ? AND ?", w);
+  const days = sum_grouped_rows(dayRows, r => String(r.label || '').slice(-2)).sort((a,b)=>Number(a.label)-Number(b.label));
+  const balances = calculate_balances();
+  const accounts = get_accounts().map(a => ({ label: a.name, value: amount_to_toman(balances[a.id] || 0, a.currency), color: a.color }));
+  const assets = {}; for (const a of D.all("SELECT * FROM hpa_assets WHERE COALESCE(is_active,1)=1")) { const label = asset_groups()[a.asset_group] || a.asset_group; assets[label] = (assets[label] || 0) + asset_valuation(a).current_total; }
+  const assetRows = Object.keys(assets).map(k => ({ label:k,value:assets[k] })).sort((a,b)=>b.value-a.value);
+  const obligations = [{label:'بدهی‌ها',value:table_sum_toman('debts','amount',"status!='paid'")},{label:'وام‌ها',value:loan_remaining_total_toman()},{label:'چک‌ها',value:check_open_total_toman()}];
+  const personRows = D.all("SELECT person_key,amount,currency FROM hpa_transactions WHERE status!='cancelled' AND type IN ('expense','recurring_debt') AND gregorian_date BETWEEN ? AND ?", w);
+  const pmap = persons(), people = sum_grouped_rows(personRows, r => pmap[r.person_key] || r.person_key || pmap.hamidreza);
+  const essentialRows = D.all("SELECT COALESCE(c.is_essential,1) essential,t.amount,t.currency FROM hpa_transactions t LEFT JOIN hpa_categories c ON c.id=t.category_id WHERE t.status!='cancelled' AND t.type IN ('expense','recurring_debt') AND t.gregorian_date BETWEEN ? AND ?", w);
+  const essential = sum_grouped_rows(essentialRows, r => Number(r.essential) ? 'ضروری' : 'غیرضروری');
+  const financing = [{label:'ورودی تأمین مالی',value:transaction_sum_toman(financing_in_types(),"gregorian_date BETWEEN '"+w[0]+"' AND '"+w[1]+"'")},{label:'خروجی تأمین مالی',value:transaction_sum_toman(financing_out_types(),"gregorian_date BETWEEN '"+w[0]+"' AND '"+w[1]+"'")}];
+  const placeRows = D.all("SELECT transaction_place,amount,currency FROM hpa_transactions WHERE status!='cancelled' AND transaction_place<>'' AND type IN ('expense','recurring_debt') AND gregorian_date BETWEEN ? AND ?", w);
+  const places = sum_grouped_rows(placeRows, r => r.transaction_place);
+  let out = '<section class="hpa-analytics-section"><div class="hpa-section-head"><div><h2>۱۰ نمودار کلیدی حسابداری</h2><p class="hpa-muted">مبالغ نمودارهای مقطعی مربوط به ماه شمسی جاری و مبالغ روند مربوط به شش ماه اخیر است.</p></div></div><div class="hpa-analytics-grid">';
+  out += analytics_bar_chart('۱. روند درآمد','درآمد واقعی شش ماه اخیر',incomeTrend,palette);
+  out += analytics_bar_chart('۲. روند هزینه','هزینه واقعی شش ماه اخیر',expenseTrend,palette);
+  out += analytics_bar_chart('۳. ترکیب هزینه‌ها','بیشترین دسته‌های هزینه ماه',cats,palette);
+  out += analytics_bar_chart('۴. ریتم خرج روزانه','هزینه به تفکیک روز ماه',days,palette);
+  out += analytics_bar_chart('۵. مانده حساب‌ها','ارزش مانده هر حساب به تومان',accounts,palette);
+  out += analytics_bar_chart('۶. ترکیب دارایی‌ها','ارزش روز دارایی‌ها بر اساس نوع',assetRows,palette);
+  out += analytics_bar_chart('۷. ساختار تعهدات','بدهی، مانده وام و چک باز',obligations,palette);
+  out += analytics_bar_chart('۸. هزینه بر اساس شخص','سهم اشخاص از هزینه ماه',people,palette);
+  out += analytics_bar_chart('۹. ضروری و غیرضروری','کیفیت هزینه‌کرد ماه',essential,palette);
+  out += analytics_bar_chart('۱۰. محل‌های اصلی خرج','بیشترین محل‌های ثبت‌شده',places.length ? places : financing,palette);
+  return out + '</div></section>';
+}
 function view_reports() {
   let out = report_financial_overview_text();
   const balances = calculate_balances();
@@ -1845,6 +1911,8 @@ function view_reports() {
   out += kpi('بدهی باز', fmt_money_html(debtsTotal, 'toman'), '⚠️');
   out += kpi('مانده حساب‌ها', fmt_money_html(total_balances_toman(balances), 'toman'), '💳');
   out += '</section>';
+  out += report_previous_jalali_month();
+  out += report_ten_accounting_charts();
   out += report_month_comparison();
   out += report_accounting_health_ratios();
   out += report_money_routes();
@@ -2173,5 +2241,3 @@ Object.assign(module.exports, {
   future_obligation_items, resolve_recurring_payment_selection, get_goals,
   render_archive_report
 });
-
-

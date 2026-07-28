@@ -95,7 +95,13 @@ function mergeIncoming(tables) {
       for (const c in row) { const v = row[c]; clean[c] = (v && typeof v === 'object') ? JSON.stringify(v) : v; }
       // don't resurrect a row that was deleted on either side
       if (key !== 'deleted_items' && clean.id && tset && tset.has(String(clean.id))) continue;
-      if (clean.id) { const exists = Number(D.scalar('SELECT id FROM ' + table + ' WHERE id=?', [clean.id])) || 0; if (exists) D.update(table, clean, { id: clean.id }); else D.insert(table, clean); }
+      if (clean.id) {
+        const current = D.get('SELECT * FROM ' + table + ' WHERE id=?', [clean.id]);
+        // Numeric ids are local to each database. Different creation timestamps mean
+        // this is an id collision, not the same logical row; keep both sides intact.
+        if (current && current.created_at && clean.created_at && String(current.created_at) !== String(clean.created_at)) continue;
+        if (current) D.update(table, clean, { id: clean.id }); else D.insert(table, clean);
+      }
       else { delete clean.id; D.insert(table, clean); }
       count++;
     }

@@ -44,6 +44,28 @@
   });
 })();
 
+/* Transaction integrity checks shared by web, desktop and Android. */
+(function(){
+  document.addEventListener('submit', function(e){
+    var f=e.target;
+    if(!f || !f.querySelector('input[name="action"][value="hpa_save_transaction"]')) return;
+    var get=function(n){return f.querySelector('[name="'+n+'"]');};
+    var val=function(n){var x=get(n);return x?String(x.value||'').trim():'';};
+    var money=function(n){return Number(val(n).replace(/[,\u066C\u066B\s]/g,''))||0;};
+    var type=val('type'), amount=money('amount'), message='';
+    if(amount<=0) message='مبلغ تراکنش باید بیشتر از صفر باشد.';
+    else if(type==='transfer' && (!val('to_account_id') || val('to_account_id')==='0')) message='برای انتقال، حساب مقصد را انتخاب کنید.';
+    else if(type==='transfer' && val('account_id')===val('to_account_id')) message='حساب مبدأ و مقصد انتقال نمی‌توانند یکسان باشند.';
+    else if(type==='person_transfer' && val('from_person_key')===val('to_person_key')) message='شخص مبدأ و مقصد انتقال نمی‌توانند یکسان باشند.';
+    else if(type==='debt_settlement' && (!val('debt_id') || val('debt_id')==='0')) message='بدهی مرتبط را انتخاب کنید.';
+    else if(type==='receivable_settlement' && (!val('receivable_id') || val('receivable_id')==='0')) message='طلب مرتبط را انتخاب کنید.';
+    else if(type==='check_settlement' && (!val('check_id') || val('check_id')==='0')) message='چک مرتبط را انتخاب کنید.';
+    else if(type==='loan_installment' && (!val('loan_installment_id') || val('loan_installment_id')==='0')) message='قسط مرتبط را انتخاب کنید.';
+    else if((type==='asset_buy'||type==='asset_sell') && (!val('asset_id') || val('asset_id')==='0')) message='دارایی مرتبط را انتخاب کنید.';
+    if(message){ e.preventDefault(); alert(message); }
+  }, true);
+})();
+
 /* v2.2 lightweight Jalali datepicker */
 (function(){
   var activeInput=null, box=null, jy=0, jm=0;

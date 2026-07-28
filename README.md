@@ -8,7 +8,7 @@
 
 <p>
 <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%2010%20%2F%2011%20(x64)-0078D6?logo=windows&logoColor=white">
-<img alt="Version" src="https://img.shields.io/badge/version-1.4.0-4F46E5">
+<img alt="Version" src="https://img.shields.io/badge/version-1.6.4-4F46E5">
 <img alt="Engine" src="https://img.shields.io/badge/Electron-31-2B2E3A?logo=electron&logoColor=white">
 <img alt="Storage" src="https://img.shields.io/badge/storage-SQLite%20(offline)-003B57?logo=sqlite&logoColor=white">
 <img alt="Language" src="https://img.shields.io/badge/UI-فارسی%20(RTL)-16A34A">
@@ -99,6 +99,12 @@ npm start       # run in development
 npm run dist    # build installer + portable into ./release
 ```
 
+## 📊 A modern accounting command center
+
+Reports now brings together **10 practical charts** for income, expense, spending categories, daily spending rhythm, account liquidity, asset allocation, obligations, household members, essential costs and spending places. The new **previous full Jalali month** panel separates a completed month from the still‑changing current month and summarizes income, expense, net savings, cash movement and transaction volume.
+
+The Windows layout uses a spacious two‑column analytics grid, prints cleanly to PDF and keeps all calculations offline. Data remains compatible with the WordPress hub and Android companion.
+
 ## 🧩 Under the hood
 
 - **Electron** shell with a **local render server** (`electron/server.js`) — the UI is the very same server‑rendered HTML as the WordPress plugin, which is why it's a true 1:1 port.
@@ -118,6 +124,7 @@ npm run dist    # build installer + portable into ./release
 
 ## 📦 Changelog (recent)
 
+- **1.6.4** — Ten accounting charts; previous Jalali month report; correct historical balance after incoming account transfers; safer sync collision handling; stronger transaction validation.
 - **1.4.0** — Full‑width layout that fills the window like the site's full‑screen mode; **background auto‑sync** (push on every change, pull on launch, crash‑safe).
 - **1.3.0** — **Archive / close‑a‑period** with PDF export.
 - **1.2.0** — The financing‑vs‑expense accounting model (no double‑counted repayments).
